@@ -241,13 +241,20 @@ body{font-family:'Cairo',sans-serif;background:#f4f7fa;color:#1e293b;-webkit-tap
 lucide.createIcons();
 const $ = id => document.getElementById(id);
 
+let fatalShown = false;
 function fatal(msg) {
   const l = $('app-loader');
   if (l.classList.contains('hidden')) return;
-  l.innerHTML = '<div class="max-w-sm text-center p-4"><p class="font-extrabold text-rose-600 mb-2">تعذر تشغيل النظام</p><p id="fatal-msg" class="text-xs text-slate-600 break-words" dir="ltr"></p></div>';
+  fatalShown = true;
+  let hint = '';
+  if (/Failed to fetch|NetworkError|Load failed|timeout/i.test(msg)) {
+    hint = 'السكريبت لا يرد: تأكد أن "من لديه حق الوصول" = أي شخص (Anyone)، وأنك عملت إصدار جديد (New version) ثم نشر، وأن رابط API_URL في الصفحة صحيح.';
+  }
+  l.innerHTML = '<div class="max-w-sm text-center p-4"><p class="font-extrabold text-rose-600 mb-2">تعذر تشغيل النظام</p><p id="fatal-msg" class="text-xs text-slate-600 break-words" dir="ltr"></p><p id="fatal-hint" class="text-xs text-slate-500 mt-3 leading-relaxed"></p></div>';
   $('fatal-msg').textContent = msg;
+  $('fatal-hint').textContent = hint;
 }
-setTimeout(() => fatal('timeout: no response from server (check the Apps Script URL and that access is set to Anyone)'), 12000);
+setTimeout(() => { if (!fatalShown) fatal('timeout: no response from server (check the Apps Script URL and that access is set to Anyone)'); }, 25000);
 
 // ===== رابط Google Apps Script (Web App) =====
 const API_URL = 'https://script.google.com/macros/s/AKfycbx1otQoRprzJfcsQwu50E82sKwsquIXY8Ec3Te8zERcNJy2ZpyABYyTWyts2HFEDndg/exec';
@@ -653,4 +660,4 @@ async function bootstrapApp() {
 bootstrapApp();
 </script>
 </body>
-        </html>
+  </html>
