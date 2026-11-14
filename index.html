@@ -80,16 +80,6 @@ body{font-family:'Cairo',sans-serif;background:#f4f7fa;color:#1e293b;-webkit-tap
   <p class="text-sm font-bold text-slate-600">جاري تحميل النظام...</p>
 </div>
 
-<!-- Admin login -->
-<div id="login-wrapper" class="hidden flex-1 flex items-center justify-center p-4">
-  <form id="login-form" class="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 max-w-sm w-full space-y-4 fade-in">
-    <h1 class="text-xl font-extrabold text-academic-900 text-center">دخول الأدمن</h1>
-    <input type="password" id="login-key" required autocomplete="current-password" dir="ltr" placeholder="رمز الأدمن" class="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-teal-600 outline-none">
-    <p id="login-error" class="hidden text-xs font-bold text-rose-600"></p>
-    <button type="submit" class="w-full py-3 rounded-xl bg-academic-900 hover:bg-academic-800 text-white font-bold">دخول</button>
-  </form>
-</div>
-
 <!-- ============ STUDENT ============ -->
 <div id="student-mode-wrapper" class="hidden flex-1 flex flex-col">
   <header class="bg-gradient-to-l from-academic-900 via-academic-800 to-teal-900 text-white shadow-lg">
@@ -140,7 +130,6 @@ body{font-family:'Cairo',sans-serif;background:#f4f7fa;color:#1e293b;-webkit-tap
       <h1 class="text-xl sm:text-2xl font-extrabold">لوحة تحكم الحضور (أدمن)</h1>
       <div class="flex flex-wrap gap-2.5">
         <button id="preview-student-btn" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 font-bold text-sm">معاينة كطالب</button>
-        <button id="logout-btn" class="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-sm">تسجيل خروج</button>
       </div>
     </div>
   </header>
@@ -182,8 +171,7 @@ body{font-family:'Cairo',sans-serif;background:#f4f7fa;color:#1e293b;-webkit-tap
 
 <script type="module">
 const $ = id => document.getElementById(id);
-const icons = root => { try { window.lucide && window.lucide.createIcons(root ? { root } : undefined); } catch {} };
-icons();
+try { window.lucide && window.lucide.createIcons(); } catch {}
 
 // ===== Loader / fatal =====
 let loaderTimer = setTimeout(() => fatal('timeout: no response from server'), 25000);
@@ -192,7 +180,7 @@ function fatal(msg) {
   const l = $('app-loader');
   if (l.classList.contains('hidden')) return;
   const hint = /Failed to fetch|NetworkError|Load failed|timeout/i.test(msg)
-    ? 'السكريبت لا يرد: تأكد أن الوصول = Anyone، وأنك عملت إصدار جديد (New deployment)، وأن API_URL صحيح.' : '';
+    ? 'السكريبت لا يرد: تأكد أن الوصول = Anyone، وأنك عملت إصدار جديد (New version)، وأن API_URL صحيح.' : '';
   l.innerHTML = '<div class="max-w-sm text-center p-4"><p class="font-extrabold text-rose-600 mb-2">تعذر تشغيل النظام</p><p id="fm" class="text-xs text-slate-600 break-words" dir="ltr"></p><p id="fh" class="text-xs text-slate-500 mt-3"></p></div>';
   $('fm').textContent = msg; $('fh').textContent = hint;
 }
@@ -206,8 +194,6 @@ const isStudentLink = Boolean(requestedSessionId);
 const isAdminMode = urlParams.get('admin') === '1';
 const appId = 'attendance-system-v3';
 
-let ADMIN_KEY = '';
-try { ADMIN_KEY = sessionStorage.getItem('att_admin_key') || ''; } catch {}
 let sessionsList = [], counts = {}, records = [];
 let selectedAdminSessionId = null, activeStudentSession = null;
 
@@ -217,7 +203,7 @@ async function call(req) {
   if (!j.ok) throw new Error(j.error || 'api_error');
   return j;
 }
-const api = body => call(fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...body, key: ADMIN_KEY }) }));
+const api = body => call(fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) }));
 const apiGet = params => call(fetch(API_URL + '?' + new URLSearchParams(params)));
 
 // ===== URLs =====
@@ -351,7 +337,6 @@ $('attendance-form').addEventListener('submit', async e => {
 // ===== Admin view =====
 function renderAdminView() {
   hideLoader();
-  $('login-wrapper').classList.add('hidden');
   $('admin-mode-wrapper').classList.remove('hidden');
   document.title = 'لوحة تحكم الأدمن';
   const sorted = [...sessionsList].sort((a, b) => (b.createdAtMs || 0) - (a.createdAtMs || 0));
@@ -425,7 +410,6 @@ function renderRoster() {
 }
 
 // ===== Admin buttons =====
-$('logout-btn').addEventListener('click', () => { try { sessionStorage.removeItem('att_admin_key'); } catch {} location.reload(); });
 $('preview-student-btn').addEventListener('click', () => window.open(selectedAdminSessionId ? studentUrl(selectedAdminSessionId) : baseUrl(), '_blank', 'noopener'));
 $('copy-student-link-header-btn').addEventListener('click', () => { if (selectedAdminSessionId) copyText(studentUrl(selectedAdminSessionId), 'تم نسخ رابط الطلاب!'); });
 $('admin-search-input').addEventListener('input', renderRoster);
@@ -512,43 +496,12 @@ async function loadAdminData() {
   renderAdminView();
 }
 
-function showLogin(msg) {
-  hideLoader();
-  $('admin-mode-wrapper').classList.add('hidden');
-  $('login-wrapper').classList.remove('hidden');
-  const er = $('login-error');
-  if (msg) { er.textContent = msg; er.classList.remove('hidden'); } else er.classList.add('hidden');
-}
-
-let pollTimer = null;
-function startPolling() {
-  if (pollTimer) return;
-  pollTimer = setInterval(() => { if (document.visibilityState === 'visible') loadAdminData().catch(() => {}); }, 30000);
-}
-
-$('login-form').addEventListener('submit', async e => {
-  e.preventDefault();
-  ADMIN_KEY = $('login-key').value;
-  try {
-    await loadAdminData();
-    try { sessionStorage.setItem('att_admin_key', ADMIN_KEY); } catch {}
-    startPolling();
-  } catch (err) {
-    ADMIN_KEY = '';
-    showLogin(err.message === 'unauthorized' ? 'الرمز غير صحيح (أو تم القفل مؤقتاً بعد محاولات كثيرة).' : 'تعذر الاتصال بالسيرفر.');
-  }
-});
-
 async function bootstrapApp() {
   if (!isAdminMode && !isStudentLink) { activeStudentSession = null; renderStudentView(); return; }
   try {
     if (isAdminMode) {
-      if (!ADMIN_KEY) { showLogin(); return; }
-      try { await loadAdminData(); startPolling(); }
-      catch (err) {
-        if (err.message === 'unauthorized') { try { sessionStorage.removeItem('att_admin_key'); } catch {} ADMIN_KEY = ''; showLogin('انتهت الجلسة، ادخل الرمز مرة أخرى.'); }
-        else throw err;
-      }
+      await loadAdminData();
+      setInterval(() => { if (document.visibilityState === 'visible') loadAdminData().catch(() => {}); }, 30000);
     } else {
       try { activeStudentSession = (await apiGet({ action: 'session', sid: requestedSessionId })).session; }
       catch (err) { if (err.message === 'not_found') activeStudentSession = null; else throw err; }
@@ -559,4 +512,4 @@ async function bootstrapApp() {
 bootstrapApp();
 </script>
 </body>
-                                                                                              </html>
+  </html>
