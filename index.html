@@ -250,7 +250,7 @@ function fatal(msg) {
 setTimeout(() => fatal('timeout: no response from server (check the Apps Script URL and that access is set to Anyone)'), 12000);
 
 // ===== رابط Google Apps Script (Web App) =====
-const API_URL = 'ضع_رابط_الويب_آب_هنا';
+const API_URL = 'https://script.google.com/macros/s/AKfycbx1otQoRprzJfcsQwu50E82sKwsquIXY8Ec3Te8zERcNJy2ZpyABYyTWyts2HFEDndg/exec';
 
 const urlParams = new URLSearchParams(location.search);
 const requestedSessionId = urlParams.get('sid');
