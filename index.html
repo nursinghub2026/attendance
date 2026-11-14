@@ -8,15 +8,24 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.460.0/lucide.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 tailwind.config = { theme: { extend: {
   fontFamily: { sans: ['Cairo', 'sans-serif'] },
   colors: { academic: { 900:'#0f2942', 800:'#163a5f', 700:'#1e4e7c' } }
 } } }
 </script>
-<style>
+<style type="text/tailwindcss">
+@layer components {
+  .modal { @apply fixed inset-0 z-50 hidden bg-slate-900/60 flex items-center justify-center p-4; }
+  .box { @apply bg-white rounded-2xl shadow-xl w-full p-6 fade-in; }
+  .inp { @apply w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-teal-500 outline-none font-semibold; }
+  .btn { @apply px-4 py-2.5 rounded-xl text-sm font-bold; }
+  .btn-g { @apply btn bg-slate-100 hover:bg-slate-200; }
+  .btn-p { @apply btn text-white bg-academic-900 hover:bg-academic-800; }
+  .card { @apply bg-white rounded-3xl shadow-sm border border-slate-200; }
+}
 body{font-family:'Cairo',sans-serif;background:#f4f7fa;color:#1e293b;-webkit-tap-highlight-color:transparent}
 .fade-in{animation:fadeIn .3s ease-in-out}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
@@ -26,56 +35,60 @@ body{font-family:'Cairo',sans-serif;background:#f4f7fa;color:#1e293b;-webkit-tap
 
 <div id="toast-container" class="fixed top-4 left-4 right-4 z-50 flex flex-col items-center pointer-events-none gap-2"></div>
 
-<!-- Confirm -->
-<div id="confirm-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 flex items-center justify-center p-4">
-  <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 fade-in">
-    <h3 id="confirm-title" class="font-bold text-lg text-rose-600 mb-2"></h3>
-    <p id="confirm-message" class="text-slate-600 text-sm mb-6"></p>
-    <div class="flex justify-end gap-3">
-      <button id="confirm-cancel-btn" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-slate-100 hover:bg-slate-200">إلغاء</button>
-      <button id="confirm-ok-btn" class="px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700">تأكيد</button>
-    </div>
-  </div>
-</div>
+<div id="confirm-modal" class="modal"><div class="box max-w-sm">
+  <h3 id="confirm-title" class="font-bold text-lg text-rose-600 mb-2"></h3>
+  <p id="confirm-message" class="text-slate-600 text-sm mb-6"></p>
+  <div class="flex justify-end gap-3">
+    <button id="confirm-cancel-btn" class="btn-g">إلغاء</button>
+    <button id="confirm-ok-btn" class="btn text-white bg-rose-600 hover:bg-rose-700">تأكيد</button>
+  </div></div></div>
 
 <!-- Session modal -->
-<div id="session-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 flex items-center justify-center p-4">
-  <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 fade-in">
-    <div class="flex items-center justify-between mb-4">
-      <h3 id="session-modal-title" class="font-bold text-lg text-academic-900"></h3>
-      <button id="close-session-modal" class="text-slate-400 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
-    </div>
-    <form id="session-form" class="space-y-4">
-      <input type="hidden" id="session-edit-id">
-      <div><label class="block text-sm font-bold mb-1.5">اسم المادة / المحاضرة *</label>
-        <input type="text" id="session-course-input" required maxlength="80" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-teal-500 outline-none font-semibold" placeholder="مثال: تنمية ذاتية"></div>
-      <div><label class="block text-sm font-bold mb-1.5">التاريخ أو رقم المحاضرة *</label>
-        <input type="text" id="session-date-input" required maxlength="40" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-teal-500 outline-none font-semibold" placeholder="مثال: 14/11"></div>
-      <label class="flex items-center justify-between bg-slate-50 p-3.5 rounded-xl border border-slate-200 cursor-pointer">
-        <span class="text-sm font-bold">التسجيل مفتوح للطلاب</span>
-        <input type="checkbox" id="session-open-input" checked class="w-5 h-5 accent-teal-600">
-      </label>
-      <div class="flex justify-end gap-3 pt-2">
-        <button type="button" id="cancel-session-btn" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-slate-100 hover:bg-slate-200">إلغاء</button>
-        <button type="submit" class="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-academic-900 hover:bg-academic-800">حفظ</button>
-      </div>
-    </form>
+<div id="session-modal" class="modal"><div class="box max-w-md">
+  <div class="flex items-center justify-between mb-4">
+    <h3 id="session-modal-title" class="font-bold text-lg text-academic-900"></h3>
+    <button id="close-session-modal" class="text-slate-400 p-1 text-xl">✕</button>
   </div>
-</div>
+  <form id="session-form" class="space-y-4">
+    <input type="hidden" id="session-edit-id">
+    <div><label class="block text-sm font-bold mb-1.5">اسم المادة / المحاضرة *</label>
+      <input type="text" id="session-course-input" required maxlength="80" class="inp" placeholder="مثال: تنمية ذاتية"></div>
+    <div><label class="block text-sm font-bold mb-1.5">التاريخ أو رقم المحاضرة *</label>
+      <input type="text" id="session-date-input" required maxlength="40" class="inp" placeholder="مثال: 14/11"></div>
+    <label class="flex items-center justify-between bg-slate-50 p-3.5 rounded-xl border border-slate-200 cursor-pointer">
+      <span class="text-sm font-bold">التسجيل مفتوح للطلاب</span>
+      <input type="checkbox" id="session-open-input" checked class="w-5 h-5 accent-teal-600">
+    </label>
+    <div><label class="block text-sm font-bold mb-1.5">يقفل تلقائياً بعد (دقيقة)</label>
+      <input type="number" id="session-mins-input" min="1" max="1440" inputmode="numeric" class="inp" placeholder="اتركه فاضي = مفتوح لحد ما تقفله بنفسك">
+      <p class="text-xs text-slate-500 mt-1.5">العد بيبدأ من لحظة الضغط على "حفظ".</p></div>
+    <div class="flex justify-end gap-3 pt-2">
+      <button type="button" id="cancel-session-btn" class="btn-g">إلغاء</button>
+      <button type="submit" class="btn-p px-5">حفظ</button>
+    </div>
+  </form></div></div>
+
+<!-- Add student modal -->
+<div id="add-modal" class="modal"><div class="box max-w-md">
+  <h3 class="font-bold text-lg text-academic-900 mb-4">إضافة طالب يدوياً</h3>
+  <form id="add-form" class="space-y-4">
+    <input type="text" id="add-name-input" maxlength="60" class="inp" placeholder="اسم الطالب بالكامل" required>
+    <div class="flex justify-end gap-3">
+      <button type="button" id="add-cancel-btn" class="btn-g">إلغاء</button>
+      <button type="submit" id="add-ok-btn" class="btn-p px-5">إضافة</button>
+    </div>
+  </form></div></div>
 
 <!-- QR modal -->
-<div id="qr-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 flex items-center justify-center p-4">
-  <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center fade-in">
-    <div class="flex justify-end"><button id="close-qr-modal" class="text-slate-400 p-1"><i data-lucide="x" class="w-5 h-5"></i></button></div>
-    <h3 id="qr-session-title" class="font-extrabold text-xl text-academic-900"></h3>
-    <p id="qr-session-date" class="text-sm font-bold text-slate-500 mb-4"></p>
-    <div class="inline-flex p-4 rounded-2xl border-2 border-dashed border-slate-200 mb-4"><div id="qr-code-container"></div></div>
-    <input type="text" id="qr-link-input" readonly class="w-full bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs font-mono mb-3 text-left" dir="ltr">
-    <button id="qr-copy-btn" class="w-full py-3 rounded-xl bg-academic-900 hover:bg-academic-800 text-white font-bold text-sm">نسخ رابط الطلاب</button>
-  </div>
-</div>
+<div id="qr-modal" class="modal"><div class="box max-w-sm rounded-3xl text-center">
+  <div class="flex justify-end"><button id="close-qr-modal" class="text-slate-400 p-1 text-xl">✕</button></div>
+  <h3 id="qr-session-title" class="font-extrabold text-xl text-academic-900"></h3>
+  <p id="qr-session-date" class="text-sm font-bold text-slate-500 mb-4"></p>
+  <div class="inline-flex p-4 rounded-2xl border-2 border-dashed border-slate-200 mb-4"><div id="qr-code-container"></div></div>
+  <input type="text" id="qr-link-input" readonly class="w-full bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs font-mono mb-3 text-left" dir="ltr">
+  <button id="qr-copy-btn" class="btn-p w-full py-3">نسخ رابط الطلاب</button>
+</div></div>
 
-<!-- Loader -->
 <div id="app-loader" class="fixed inset-0 z-40 bg-slate-50 flex flex-col items-center justify-center p-4">
   <p class="text-sm font-bold text-slate-600">جاري تحميل النظام...</p>
 </div>
@@ -90,11 +103,11 @@ body{font-family:'Cairo',sans-serif;background:#f4f7fa;color:#1e293b;-webkit-tap
         <span class="text-teal-300 font-bold">•</span>
         <span id="student-session-date" class="bg-teal-500/30 px-2.5 py-0.5 rounded-lg text-sm font-extrabold text-teal-100">--/--</span>
       </div>
+      <p id="student-deadline" class="hidden mt-3 text-sm font-bold text-amber-200"></p>
     </div>
   </header>
-
   <main class="flex-1 max-w-xl w-full mx-auto px-4 py-6 sm:py-8">
-    <div id="student-form-card" class="hidden bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden fade-in">
+    <div id="student-form-card" class="hidden card overflow-hidden fade-in">
       <form id="attendance-form" class="p-6 sm:p-8 space-y-5" novalidate>
         <div>
           <label for="student-name" class="block text-base font-extrabold mb-2">اسم الطالب (زي اللي فالكشف) *</label>
@@ -105,8 +118,7 @@ body{font-family:'Cairo',sans-serif;background:#f4f7fa;color:#1e293b;-webkit-tap
         <button type="submit" id="submit-btn" class="w-full py-4 rounded-2xl bg-gradient-to-l from-academic-900 to-teal-700 text-white font-extrabold text-lg shadow-lg disabled:opacity-60"><span id="submit-btn-text">تأكيد وتسجيل الحضور</span></button>
       </form>
     </div>
-
-    <div id="student-receipt-card" class="hidden bg-white rounded-3xl shadow-md border border-teal-200 p-6 sm:p-8 text-center fade-in">
+    <div id="student-receipt-card" class="hidden card border-teal-200 p-6 sm:p-8 text-center fade-in">
       <span id="receipt-badge-text" class="inline-block px-3.5 py-1 rounded-full bg-teal-100 text-teal-800 text-xs font-extrabold mb-2"></span>
       <h2 class="text-2xl font-extrabold text-academic-900 mb-2">أنت مسجل في كشف الحضور</h2>
       <div class="bg-slate-50 rounded-2xl border border-slate-200 p-5 text-right space-y-3 mt-4">
@@ -115,8 +127,7 @@ body{font-family:'Cairo',sans-serif;background:#f4f7fa;color:#1e293b;-webkit-tap
         <div class="flex justify-between"><span class="text-xs text-slate-500">الوقت:</span><span id="receipt-time" class="text-sm font-bold text-slate-600"></span></div>
       </div>
     </div>
-
-    <div id="student-closed-card" class="hidden bg-white rounded-3xl shadow-sm border border-slate-200 p-8 text-center fade-in">
+    <div id="student-closed-card" class="hidden card p-8 text-center fade-in">
       <h2 id="closed-title" class="text-xl font-extrabold mb-2"></h2>
       <p id="closed-message" class="text-slate-500 text-sm"></p>
     </div>
@@ -126,24 +137,17 @@ body{font-family:'Cairo',sans-serif;background:#f4f7fa;color:#1e293b;-webkit-tap
 <!-- ============ ADMIN ============ -->
 <div id="admin-mode-wrapper" class="hidden flex-1 flex flex-col">
   <header class="bg-gradient-to-l from-academic-900 via-academic-800 to-slate-900 text-white shadow-lg">
-    <div class="max-w-5xl mx-auto px-4 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-      <h1 class="text-xl sm:text-2xl font-extrabold">لوحة تحكم الحضور (أدمن)</h1>
-      <div class="flex flex-wrap gap-2.5">
-        <button id="preview-student-btn" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 font-bold text-sm">معاينة كطالب</button>
-      </div>
-    </div>
+    <div class="max-w-5xl mx-auto px-4 py-6"><h1 class="text-xl sm:text-2xl font-extrabold">لوحة تحكم الحضور (أدمن)</h1></div>
   </header>
-
   <main class="flex-1 max-w-5xl w-full mx-auto px-4 py-6 space-y-6">
-    <section class="bg-white rounded-3xl shadow-sm border border-slate-200 p-5 sm:p-6">
+    <section class="card p-5 sm:p-6">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <h2 class="text-lg font-extrabold text-academic-900">المواد والمحاضرات</h2>
-        <button id="open-create-session-btn" class="px-4 py-2.5 rounded-xl bg-academic-900 hover:bg-academic-800 text-white font-bold text-sm">+ إضافة مادة / محاضرة</button>
+        <button id="open-create-session-btn" class="btn-p">+ إضافة مادة / محاضرة</button>
       </div>
       <div id="sessions-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
     </section>
-
-    <section class="bg-white rounded-3xl shadow-sm border border-slate-200 p-5 sm:p-6 space-y-5">
+    <section class="card p-5 sm:p-6 space-y-5">
       <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="text-xs font-bold text-slate-500">كشف حضور:</span>
@@ -151,9 +155,11 @@ body{font-family:'Cairo',sans-serif;background:#f4f7fa;color:#1e293b;-webkit-tap
           <span id="roster-total-badge" class="bg-teal-100 text-teal-800 text-xs font-extrabold px-3 py-1 rounded-full">0 طالب</span>
         </div>
         <div class="flex flex-wrap gap-2.5">
-          <button id="copy-student-link-header-btn" class="px-3.5 py-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 font-bold text-sm">نسخ رابط الطلاب</button>
-          <button id="copy-whatsapp-btn" class="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 font-bold text-sm">نسخ الأسماء</button>
-          <button id="export-excel-btn" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm">تصدير CSV</button>
+          <button id="add-student-btn" class="btn bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200">+ إضافة طالب</button>
+          <button id="copy-student-link-header-btn" class="btn bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200">نسخ رابط الطلاب</button>
+          <button id="copy-whatsapp-btn" class="btn-g">نسخ الأسماء</button>
+          <button id="export-excel-btn" class="btn text-white bg-emerald-600 hover:bg-emerald-700">تصدير Excel</button>
+          <button id="export-pdf-btn" class="btn text-white bg-rose-600 hover:bg-rose-700">تصدير PDF</button>
         </div>
       </div>
       <input type="text" id="admin-search-input" placeholder="ابحث باسم الطالب..." class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-teal-600 outline-none text-sm font-semibold">
@@ -171,21 +177,18 @@ body{font-family:'Cairo',sans-serif;background:#f4f7fa;color:#1e293b;-webkit-tap
 
 <script type="module">
 const $ = id => document.getElementById(id);
-try { window.lucide && window.lucide.createIcons(); } catch {}
 
-// ===== Loader / fatal =====
 let loaderTimer = setTimeout(() => fatal('timeout: no response from server'), 25000);
 function hideLoader() { clearTimeout(loaderTimer); $('app-loader').classList.add('hidden'); }
 function fatal(msg) {
   const l = $('app-loader');
   if (l.classList.contains('hidden')) return;
   const hint = /Failed to fetch|NetworkError|Load failed|timeout/i.test(msg)
-    ? 'السكريبت لا يرد: تأكد أن الوصول = Anyone، وأنك عملت إصدار جديد (New version)، وأن API_URL صحيح.' : '';
+    ? 'تعذر الاتصال بالسكريبت: تأكد أن الوصول = Anyone، وأنك عملت إصدار جديد (New version)، وأن API_URL صحيح.' : '';
   l.innerHTML = '<div class="max-w-sm text-center p-4"><p class="font-extrabold text-rose-600 mb-2">تعذر تشغيل النظام</p><p id="fm" class="text-xs text-slate-600 break-words" dir="ltr"></p><p id="fh" class="text-xs text-slate-500 mt-3"></p></div>';
   $('fm').textContent = msg; $('fh').textContent = hint;
 }
 
-// ===== الإعدادات =====
 const API_URL = 'https://script.google.com/macros/s/AKfycbx1otQoRprzJfcsQwu50E82sKwsquIXY8Ec3Te8zERcNJy2ZpyABYyTWyts2HFEDndg/exec';
 
 const urlParams = new URLSearchParams(location.search);
@@ -195,22 +198,19 @@ const isAdminMode = urlParams.get('admin') === '1';
 const appId = 'attendance-system-v3';
 
 let sessionsList = [], counts = {}, records = [];
-let selectedAdminSessionId = null, activeStudentSession = null;
+let selectedAdminSessionId = null, activeStudentSession = null, closeTimer = null;
 
-async function call(req) {
-  const r = await req;
+// كل الطلبات POST (نفس الطريقة اللي شغالة عندك في الأدمن)
+async function api(body) {
+  const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
   const j = await r.json();
   if (!j.ok) throw new Error(j.error || 'api_error');
   return j;
 }
-const api = body => call(fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) }));
-const apiGet = params => call(fetch(API_URL + '?' + new URLSearchParams(params)));
 
-// ===== URLs =====
 function baseUrl() { const u = new URL(location.href); u.search = ''; u.hash = ''; return u.toString(); }
 function studentUrl(id) { const u = new URL(baseUrl()); u.searchParams.set('sid', id); return u.toString(); }
 
-// ===== Device lock =====
 const lockKey = sid => `att_locked_${appId}_${sid}`;
 function getSaved(sid) { try { const r = localStorage.getItem(lockKey(sid)); return r ? JSON.parse(r) : null; } catch { return null; } }
 function saveReg(sid, d) { try { localStorage.setItem(lockKey(sid), JSON.stringify(d)); } catch {} }
@@ -224,7 +224,6 @@ function getDeviceId() {
   return id;
 }
 
-// ===== Utils =====
 function showToast(message, type = 'success') {
   const colors = { success: 'bg-teal-900', error: 'bg-rose-600', info: 'bg-academic-900' };
   const t = document.createElement('div');
@@ -258,17 +257,18 @@ function fmtTime(iso) {
   if (!iso) return '-';
   try { return new Date(iso).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); } catch { return iso; }
 }
+const fmtHM = ms => new Date(ms).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
 const normName = n => (n || '').trim().replace(/\s+/g, ' ').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
 const esc = s => !s ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 const findSession = id => sessionsList.find(s => s.id === id);
-const csvSafe = v => { v = String(v ?? ''); return /^[=+\-@\t\r]/.test(v) ? "'" + v : v; };
 
 // ===== Student view =====
 function renderStudentView() {
   hideLoader();
+  clearTimeout(closeTimer);
   $('student-mode-wrapper').classList.remove('hidden');
-  const formCard = $('student-form-card'), receipt = $('student-receipt-card'), closed = $('student-closed-card');
-  [formCard, receipt, closed].forEach(c => c.classList.add('hidden'));
+  const formCard = $('student-form-card'), receipt = $('student-receipt-card'), closed = $('student-closed-card'), dl = $('student-deadline');
+  [formCard, receipt, closed, dl].forEach(c => c.classList.add('hidden'));
   const s = activeStudentSession;
   if (!s) {
     $('student-course-name').textContent = 'غير متاح'; $('student-session-date').textContent = '--';
@@ -291,6 +291,11 @@ function renderStudentView() {
     $('closed-title').textContent = 'تم إغلاق تسجيل الحضور';
     $('closed-message').textContent = `انتهى وقت التسجيل لمحاضرة "${s.courseName} (${s.sessionDate})".`;
     closed.classList.remove('hidden'); return;
+  }
+  if (s.closeAtMs) {
+    dl.textContent = `التسجيل متاح حتى الساعة ${fmtHM(s.closeAtMs)}`; dl.classList.remove('hidden');
+    const left = s.closeAtMs - Date.now();
+    if (left > 0 && left < 2147483000) closeTimer = setTimeout(() => { activeStudentSession = { ...s, isOpen: false }; renderStudentView(); }, left + 500);
   }
   formCard.classList.remove('hidden');
 }
@@ -328,6 +333,7 @@ $('attendance-form').addEventListener('submit', async e => {
   } catch (err) {
     const m = { duplicate: 'هذا الاسم مسجل بالفعل في كشف هذه المحاضرة!', closed: 'التسجيل مغلق لهذه المحاضرة.', invalid_name: 'اكتب الاسم ثلاثياً بالعربية فقط.',
       device_used: 'تم التسجيل من هذا الجهاز مسبقاً لهذه المحاضرة.' };
+    if (err.message === 'closed') { activeStudentSession = { ...s, isOpen: false }; renderStudentView(); }
     showToast(m[err.message] || 'حدث خطأ أثناء التسجيل، حاول مرة أخرى.', 'error');
   } finally {
     submitBtn.disabled = false; submitText.textContent = 'تأكيد وتسجيل الحضور';
@@ -350,15 +356,17 @@ function renderSessionsGrid(sorted) {
   if (!sorted.length) { grid.innerHTML = '<div class="col-span-full text-center py-8 text-slate-400 text-sm">لا توجد مواد بعد. اضغط "إضافة مادة / محاضرة".</div>'; return; }
   grid.innerHTML = sorted.map(s => {
     const sel = s.id === selectedAdminSessionId, id = esc(s.id);
+    const expired = s.rawOpen && !s.isOpen;
     const badge = s.isOpen ? '<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">مفتوح</span>'
-      : '<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">مغلق</span>';
+      : `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">${expired ? 'انتهى الوقت' : 'مغلق'}</span>`;
+    const until = s.isOpen && s.closeAtMs ? `<div class="text-[11px] font-bold text-amber-700 mt-1">يقفل الساعة ${fmtHM(s.closeAtMs)}</div>` : '';
     return `<div data-select-session="${id}" class="cursor-pointer rounded-2xl p-4 border-2 flex flex-col gap-3 ${sel ? 'border-teal-600 bg-teal-50/30' : 'border-slate-200 bg-white hover:border-slate-300'}">
       <div>
         <div class="flex items-start justify-between gap-2 mb-1.5"><h3 class="font-extrabold text-base text-academic-900">${esc(s.courseName)}</h3>${badge}</div>
         <div class="flex items-center justify-between text-xs text-slate-500 font-semibold">
           <span>${esc(s.sessionDate)}</span>
           <span class="font-extrabold bg-slate-100 px-2 py-0.5 rounded-md">${counts[s.id] || 0} طالب</span>
-        </div>
+        </div>${until}
       </div>
       <div class="pt-2.5 border-t border-slate-100 flex gap-1.5" data-stop>
         <button data-copy-session="${id}" class="flex-1 py-1.5 rounded-lg bg-academic-900 hover:bg-academic-800 text-white font-bold text-xs">رابط الطلاب</button>
@@ -390,7 +398,7 @@ function renderRoster() {
   if (!cur) { $('roster-session-title').textContent = 'لم يتم اختيار مادة'; $('roster-total-badge').textContent = '0 طالب'; tbody.innerHTML = ''; return; }
   $('roster-session-title').textContent = `${cur.courseName} (${cur.sessionDate})`;
   const q = normName($('admin-search-input').value || '');
-  const recs = [...records].sort((a, b) => (a.createdAtMs || 0) - (b.createdAtMs || 0));
+  const recs = sortedRecs();
   $('roster-total-badge').textContent = `${recs.length} طالب`;
   const filtered = recs.filter(r => !q || normName(r.studentName).includes(q));
   if (!filtered.length) {
@@ -409,25 +417,49 @@ function renderRoster() {
   }));
 }
 
-// ===== Admin buttons =====
-$('preview-student-btn').addEventListener('click', () => window.open(selectedAdminSessionId ? studentUrl(selectedAdminSessionId) : baseUrl(), '_blank', 'noopener'));
 $('copy-student-link-header-btn').addEventListener('click', () => { if (selectedAdminSessionId) copyText(studentUrl(selectedAdminSessionId), 'تم نسخ رابط الطلاب!'); });
 $('admin-search-input').addEventListener('input', renderRoster);
 
 function sortedRecs() { return [...records].sort((a, b) => (a.createdAtMs || 0) - (b.createdAtMs || 0)); }
+const safeFile = s => String(s).replace(/\s+/g, '_').replace(/[\/\\:*?"<>|]/g, '-');
 
+// ===== Export Excel =====
 $('export-excel-btn').addEventListener('click', () => {
   const cur = findSession(selectedAdminSessionId); if (!cur) return;
   const recs = sortedRecs();
   if (!recs.length) { showToast('الكشف فارغ', 'error'); return; }
-  const q = v => `"${csvSafe(v).replace(/"/g, '""')}"`;
-  const rows = recs.map((r, i) => [i + 1, q(r.studentName), q(cur.courseName), q(cur.sessionDate), q(fmtTime(r.timestamp))].join(','));
-  const csv = '\uFEFF' + ['م,اسم الطالب,المادة,التاريخ,وقت التسجيل', ...rows].join('\r\n');
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-  const name = `حضور_${cur.courseName.replace(/\s+/g, '_')}_${cur.sessionDate.replace(/[\/\\]/g, '-')}.csv`;
-  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
+  if (!window.XLSX) { showToast('مكتبة Excel لم تُحمّل، تأكد من الإنترنت', 'error'); return; }
+  const data = [['م', 'اسم الطالب', 'المادة', 'التاريخ', 'وقت التسجيل'],
+    ...recs.map((r, i) => [i + 1, r.studentName, cur.courseName, cur.sessionDate, fmtTime(r.timestamp)])];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{ wch: 5 }, { wch: 36 }, { wch: 24 }, { wch: 14 }, { wch: 14 }];
+  const wb = XLSX.utils.book_new();
+  wb.Workbook = { Views: [{ RTL: true }] };
+  XLSX.utils.book_append_sheet(wb, ws, 'الحضور');
+  const name = `حضور_${safeFile(cur.courseName)}_${safeFile(cur.sessionDate)}.xlsx`;
+  XLSX.writeFile(wb, name);
   showToast(`تم تنزيل الملف: ${name}`);
+});
+
+// ===== Export PDF (طباعة -> حفظ كـ PDF، بيحافظ على العربي سليم) =====
+$('export-pdf-btn').addEventListener('click', () => {
+  const cur = findSession(selectedAdminSessionId); if (!cur) return;
+  const recs = sortedRecs();
+  if (!recs.length) { showToast('الكشف فارغ', 'error'); return; }
+  const w = window.open('', '_blank');
+  if (!w) { showToast('المتصفح منع النافذة، اسمح بالنوافذ المنبثقة', 'error'); return; }
+  const rows = recs.map((r, i) => `<tr><td>${i + 1}</td><td class="n">${esc(r.studentName)}</td><td>${fmtTime(r.timestamp)}</td></tr>`).join('');
+  w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>${esc(cur.courseName)} ${esc(cur.sessionDate)}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+  <style>body{font-family:'Cairo',sans-serif;padding:24px;color:#0f2942}h1{font-size:20px;margin:0 0 4px}p{margin:0 0 14px;color:#475569;font-size:13px}
+  table{width:100%;border-collapse:collapse;font-size:14px}th,td{border:1px solid #cbd5e1;padding:7px 10px;text-align:center}th{background:#e2e8f0}td.n{text-align:right}
+  tr{page-break-inside:avoid}</style></head><body>
+  <h1>كشف حضور: ${esc(cur.courseName)} (${esc(cur.sessionDate)})</h1><p>عدد الطلاب: ${recs.length}</p>
+  <table><thead><tr><th style="width:50px">م</th><th>اسم الطالب</th><th style="width:120px">وقت التسجيل</th></tr></thead><tbody>${rows}</tbody></table>
+  </body></html>`);
+  w.document.close();
+  setTimeout(() => { try { w.focus(); w.print(); } catch {} }, 900);
+  showToast('اختار "حفظ كملف PDF" من شاشة الطباعة', 'info');
 });
 
 $('copy-whatsapp-btn').addEventListener('click', () => {
@@ -436,6 +468,27 @@ $('copy-whatsapp-btn').addEventListener('click', () => {
   if (!recs.length) { showToast('الكشف فارغ حالياً', 'error'); return; }
   const head = `📋 كشف حضور: ${cur.courseName} (${cur.sessionDate})\nالعدد: ${recs.length} طالب\n------------------------\n`;
   copyText(head + recs.map((r, i) => `${i + 1}. ${r.studentName}`).join('\n'), 'تم نسخ الأسماء!');
+});
+
+// ===== Add student (admin) =====
+const addModal = $('add-modal');
+$('add-student-btn').addEventListener('click', () => {
+  if (!selectedAdminSessionId) { showToast('اختار مادة الأول', 'error'); return; }
+  $('add-name-input').value = ''; addModal.classList.remove('hidden'); $('add-name-input').focus();
+});
+$('add-cancel-btn').addEventListener('click', () => addModal.classList.add('hidden'));
+$('add-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const name = $('add-name-input').value.trim().replace(/\s+/g, ' ');
+  if (!name) return;
+  const btn = $('add-ok-btn'); btn.disabled = true;
+  try {
+    await api({ action: 'adminAddRecord', sessionId: selectedAdminSessionId, studentName: name });
+    addModal.classList.add('hidden');
+    await loadAdminData(); showToast('تمت إضافة الطالب');
+  } catch (err) {
+    showToast(err.message === 'duplicate' ? 'الاسم موجود بالفعل في الكشف' : 'تعذرت الإضافة', 'error');
+  } finally { btn.disabled = false; }
 });
 
 // ===== Session modal =====
@@ -447,7 +500,9 @@ function openSessionModal(editId = null) {
   $('session-edit-id').value = s ? s.id : '';
   $('session-course-input').value = s ? s.courseName : '';
   $('session-date-input').value = s ? s.sessionDate : '';
-  $('session-open-input').checked = s ? s.isOpen !== false : true;
+  $('session-open-input').checked = s ? s.rawOpen !== false : true;
+  const left = s && s.closeAtMs ? Math.ceil((s.closeAtMs - Date.now()) / 60000) : 0;
+  $('session-mins-input').value = left > 0 ? left : '';
   sessionModal.classList.remove('hidden');
   $('session-course-input').focus();
 }
@@ -461,12 +516,13 @@ $('session-form').addEventListener('submit', async e => {
   const courseName = $('session-course-input').value.trim();
   const sessionDate = $('session-date-input').value.trim();
   const isOpen = $('session-open-input').checked;
+  const closeAfterMin = Number($('session-mins-input').value) || 0;
   if (!courseName || !sessionDate) return;
   const id = editId || ('lec_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
   const createdAtMs = editId ? (findSession(editId)?.createdAtMs || Date.now()) : Date.now();
   sessionModal.classList.add('hidden');
   try {
-    await api({ action: 'saveSession', id, courseName, sessionDate, isOpen, createdAtMs });
+    await api({ action: 'saveSession', id, courseName, sessionDate, isOpen, createdAtMs, closeAfterMin });
     selectedAdminSessionId = id;
     await loadAdminData();
     if (!editId) copyText(studentUrl(id), `تم إنشاء ونسخ رابط "${courseName} (${sessionDate})"!`);
@@ -503,7 +559,7 @@ async function bootstrapApp() {
       await loadAdminData();
       setInterval(() => { if (document.visibilityState === 'visible') loadAdminData().catch(() => {}); }, 30000);
     } else {
-      try { activeStudentSession = (await apiGet({ action: 'session', sid: requestedSessionId })).session; }
+      try { activeStudentSession = (await api({ action: 'session', sid: requestedSessionId })).session; }
       catch (err) { if (err.message === 'not_found') activeStudentSession = null; else throw err; }
       renderStudentView();
     }
