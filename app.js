@@ -22,11 +22,19 @@ const appId = 'attendance-system-v3';
 let sessionsList = [], counts = {}, records = [];
 let selectedAdminSessionId = null, activeStudentSession = null, closeTimer = null;
 
-async function api(body) {
-  const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
-  const j = await r.json();
-  if (!j.ok) throw new Error(j.error || 'api_error');
-  return j;
+async function api(body, ms = 40000) {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
+  try {
+    const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body), signal: ctl.signal });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'api_error');
+    return j;
+  } catch (e) { if (e.name === 'AbortError') throw new Error('timeout'); throw e; }
+  finally { clearTimeout(t); }
+}
+async function busy(btn, label, fn) {
+  const old = btn.textContent; btn.disabled = true; btn.textContent = label;
+  try { return await fn(); } finally { btn.disabled = false; btn.textContent = old; }
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -163,19 +171,22 @@ async function loadRoster() {
 }
 function renderNameList() {
   const ws = normName($('student-search').value).split(' ').filter(Boolean);
-  const box = $('name-list');
-  if (!rosterNames.length) { box.innerHTML = '<div class="p-4 text-center text-sm text-slate-400">الكشف لسه ماترفعش، كلم المحاضر.</div>'; return; }
+  const box = $('name-list'), keep = box.scrollTop;
+  $('student-stats').textContent = rosterNames.length ? `${takenSet.size} سجّلوا من ${rosterNames.length}` : '';
+  if (!rosterNames.length) { box.innerHTML = '<div class="p-6 text-center text-sm text-slate-400">الكشف لسه ماترفعش، كلم المحاضر.</div>'; return; }
   const items = rosterNames.map((n, i) => ({ n, i })).filter(x => { const nn = normName(x.n); return ws.every(w => nn.includes(w)); });
-  if (!items.length) { box.innerHTML = '<div class="p-4 text-center text-sm text-slate-400">مفيش اسم بالشكل ده</div>'; return; }
+  if (!items.length) { box.innerHTML = '<div class="p-6 text-center text-sm text-slate-400">مفيش اسم بالشكل ده</div>'; return; }
   box.innerHTML = items.map(({ n, i }) => {
     const taken = takenSet.has(i), sel = i === pickedIdx;
-    const mark = taken ? '<span class="text-[11px] font-bold text-slate-400">مسجل</span>'
-      : sel ? '<span class="text-teal-700 font-extrabold text-xl">✓</span>' : '';
-    return `<button type="button" data-i="${i}" ${taken ? 'disabled' : ''} class="w-full flex items-center gap-3 px-3 py-3 text-sm font-bold text-right ${taken ? 'text-slate-300 bg-slate-50' : sel ? 'bg-teal-100 text-teal-900' : 'hover:bg-slate-50'}">
-      <span class="w-8 shrink-0 text-center text-xs ${sel ? 'text-teal-700' : 'text-slate-400'}">${i + 1}</span>
-      <span class="flex-1">${esc(n)}</span>
-      <span class="w-10 shrink-0 text-center">${mark}</span></button>`;
+    const mark = taken ? '<span class="inline-flex w-6 h-6 items-center justify-center rounded-full bg-slate-200 text-slate-500 text-xs">✓</span>'
+      : sel ? '<span class="inline-flex w-7 h-7 items-center justify-center rounded-full bg-teal-600 text-white font-extrabold">✓</span>'
+      : '<span class="inline-block w-6 h-6 rounded-full border-2 border-slate-200"></span>';
+    return `<button type="button" data-i="${i}" ${taken ? 'disabled' : ''} class="w-full flex items-center gap-2 px-3 py-3 text-sm font-bold text-right ${taken ? 'bg-slate-50 text-slate-300' : sel ? 'bg-teal-50 text-teal-900 ring-2 ring-inset ring-teal-500' : 'hover:bg-slate-50 active:bg-teal-50'}">
+      <span class="w-10 text-center text-xs font-extrabold ${sel ? 'text-teal-700' : 'text-slate-400'}">${i + 1}</span>
+      <span class="flex-1 leading-6">${esc(n)}</span>
+      <span class="w-14 text-center">${mark}</span></button>`;
   }).join('');
+  box.scrollTop = keep;
 }
 $('student-search').addEventListener('input', renderNameList);
 $('name-list').addEventListener('click', e => {
@@ -197,7 +208,7 @@ $('attendance-form').addEventListener('submit', async e => {
   submitBtn.disabled = true; submitText.textContent = 'جاري حفظ الحضور...';
   try {
     await submitWithRetry({ action: 'addRecord', sessionId: s.id, rosterIdx: pickedIdx, deviceId: getDeviceId() });
-    saveReg(s.id, { studentName: name, timestamp: new Date().toISOString() });
+    saveReg(s.id, { studentName: name, rosterIdx: pickedIdx, timestamp: new Date().toISOString() });
     showToast('تم تسجيل حضورك بنجاح!');
     renderStudentView();
   } catch (err) {
@@ -210,6 +221,26 @@ $('attendance-form').addEventListener('submit', async e => {
     submitBtn.disabled = false; submitText.textContent = 'تأكيد وتسجيل الحضور';
   }
 });
+
+// لو الأدمن حذف تسجيل الطالب، نمسح القفل من موبايله ونرجّعله القائمة
+async function verifyRegistration() {
+  const s = activeStudentSession, saved = s && getSaved(s.id);
+  if (!saved) return;
+  try {
+    const j = await api({ action: 'roster', sid: s.id });
+    const names = j.names || [];
+    if (!names.length) return;
+    const taken = new Set(j.taken || []);
+    let idx = names.findIndex(n => normName(n) === normName(saved.studentName));
+    if (idx < 0 && Number.isInteger(saved.rosterIdx)) idx = saved.rosterIdx;
+    if (idx < 0 || !taken.has(idx)) {
+      try { localStorage.removeItem(lockKey(s.id)); } catch {}
+      renderStudentView();
+      if (s.isOpen !== false) loadRoster().catch(() => {});
+      showToast('تم إلغاء تسجيلك، تقدر تسجل من جديد', 'info');
+    }
+  } catch {}
+}
 
 // ===== Admin view =====
 function renderAdminView() {
@@ -262,48 +293,74 @@ function renderSessionsGrid(sorted) {
   }));
 }
 
+let rosterList = [], adminFilter = 'all';
+const pillCls = on => `px-4 py-2 rounded-full text-xs font-extrabold border ${on ? 'bg-academic-900 text-white border-academic-900' : 'bg-white text-slate-600 border-slate-200'}`;
+
+function buildRows() {
+  const byName = new Map(), used = new Set();
+  records.forEach(r => byName.set(normName(r.studentName), r));
+  const rows = rosterList.map((n, i) => { const r = byName.get(normName(n)) || null; if (r) used.add(r.id); return { no: i + 1, name: n, rec: r }; });
+  records.filter(r => !used.has(r.id)).forEach((r, k) => rows.push({ no: rosterList.length + k + 1, name: r.studentName, rec: r, extra: true }));
+  return rows;
+}
+
 function renderRoster() {
-  const cur = findSession(selectedAdminSessionId);
-  const tbody = $('attendance-table-body');
-  if (!cur) { $('roster-session-title').textContent = 'لم يتم اختيار مادة'; $('roster-total-badge').textContent = '0 طالب'; tbody.innerHTML = ''; return; }
+  const cur = findSession(selectedAdminSessionId), body = $('attendance-table-body');
+  document.querySelectorAll('[data-filter]').forEach(b => b.className = pillCls(b.dataset.filter === adminFilter));
+  if (!cur) { $('roster-session-title').textContent = 'لم يتم اختيار مادة'; body.innerHTML = ''; return; }
   $('roster-session-title').textContent = `${cur.courseName} (${cur.sessionDate})`;
-  const q = normName($('admin-search-input').value || '');
-  const recs = sortedRecs();
-  $('roster-total-badge').textContent = `${recs.length} طالب`;
-  const filtered = recs.filter(r => !q || normName(r.studentName).includes(q));
-  if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="py-12 text-center text-slate-400 font-bold">لا يوجد طلاب مسجلون في هذا الكشف بعد</td></tr>'; return;
-  }
-  tbody.innerHTML = filtered.map((r, i) => `<tr class="hover:bg-slate-50">
-    <td class="py-3.5 px-4 text-center font-bold text-slate-500">${i + 1}</td>
-    <td class="py-3.5 px-4 font-bold">${esc(r.studentName)}</td>
-    <td class="py-3.5 px-4 text-xs font-semibold text-slate-500">${fmtTime(r.timestamp)}</td>
-    <td class="py-3.5 px-4 text-center"><button data-del-rec="${esc(r.id)}" class="px-2 py-1 rounded-lg text-rose-600 hover:bg-rose-50 text-xs font-bold">حذف</button></td></tr>`).join('');
-  tbody.querySelectorAll('[data-del-rec]').forEach(btn => btn.addEventListener('click', async () => {
+  const all = buildRows(), present = all.filter(x => x.rec).length, total = all.length;
+  $('st-present').textContent = present; $('st-absent').textContent = total - present; $('st-total').textContent = total;
+  $('st-bar').style.width = total ? (present / total * 100) + '%' : '0%';
+  const ws = normName($('admin-search-input').value).split(' ').filter(Boolean);
+  const rows = all.filter(x => (adminFilter === 'all' || (adminFilter === 'present') === !!x.rec) && ws.every(w => normName(x.name).includes(w)));
+  if (!rows.length) { body.innerHTML = '<div class="py-12 text-center text-slate-400 font-bold">مفيش نتائج</div>'; return; }
+  body.innerHTML = rows.map(x => `<div class="flex items-center gap-2 px-3 py-2.5 ${x.rec ? 'bg-emerald-50/50' : ''}">
+    <span class="w-9 text-center text-xs font-extrabold text-slate-400">${x.no}</span>
+    <span class="flex-1 font-bold leading-6 ${x.rec ? 'text-slate-800' : 'text-slate-500'}">${esc(x.name)}${x.extra ? ' <span class="text-[10px] text-amber-600">(يدوي)</span>' : ''}</span>
+    <span class="w-16 text-center">${x.rec ? '<span class="inline-flex w-7 h-7 items-center justify-center rounded-full bg-emerald-500 text-white font-extrabold">✓</span>' : '<span class="text-slate-300">—</span>'}</span>
+    <span class="hidden sm:block w-20 text-center text-[11px] font-semibold text-slate-500">${x.rec ? fmtTime(x.rec.timestamp) : ''}</span>
+    <span class="w-14 text-center">${x.rec ? `<button data-del-rec="${esc(x.rec.id)}" class="text-rose-500 text-xs font-bold px-1.5 py-1 rounded-lg hover:bg-rose-50">حذف</button>`
+      : `<button data-add-rec="${x.no - 1}" class="text-emerald-600 text-xs font-bold px-1.5 py-1 rounded-lg hover:bg-emerald-50">تسجيل</button>`}</span></div>`).join('');
+  body.querySelectorAll('[data-del-rec]').forEach(btn => btn.addEventListener('click', async () => {
     const id = btn.dataset.delRec, rec = records.find(r => r.id === id);
     if (!await confirmDialog('حذف اسم طالب', `هل تريد حذف "${rec?.studentName || ''}" من الكشف؟`)) return;
     try { await api({ action: 'deleteRecord', id }); await loadAdminData(); showToast('تم حذف الاسم', 'info'); }
     catch { showToast('حدث خطأ أثناء الحذف', 'error'); }
   }));
+  body.querySelectorAll('[data-add-rec]').forEach(btn => btn.addEventListener('click', async () => {
+    const name = rosterList[Number(btn.dataset.addRec)];
+    if (!await confirmDialog('تسجيل حضور يدوي', `تسجيل "${name}" حاضر؟`)) return;
+    try { await api({ action: 'adminAddRecord', sessionId: selectedAdminSessionId, studentName: name }); await loadAdminData(); showToast('تم التسجيل'); }
+    catch { showToast('تعذر التسجيل', 'error'); }
+  }));
+}
+document.querySelectorAll('[data-filter]').forEach(b => b.addEventListener('click', () => { adminFilter = b.dataset.filter; renderRoster(); }));
+
+async function loadAdminData() {
+  let j = await api({ action: 'adminList', sid: selectedAdminSessionId || '' });
+  if (!selectedAdminSessionId || !j.sessions.some(x => x.id === selectedAdminSessionId)) {
+    const newest = [...j.sessions].sort((a, b) => (b.createdAtMs || 0) - (a.createdAtMs || 0))[0];
+    selectedAdminSessionId = newest ? newest.id : null;
+    if (selectedAdminSessionId) j = await api({ action: 'adminList', sid: selectedAdminSessionId });
+  }
+  if (!rosterList.length) { try { rosterList = (await api({ action: 'roster', sid: selectedAdminSessionId || '' })).names || []; } catch {} }
+  sessionsList = j.sessions; counts = j.counts || {}; records = j.records;
+  renderAdminView();
 }
 
 $('copy-student-link-header-btn').addEventListener('click', () => { if (selectedAdminSessionId) copyText(studentUrl(selectedAdminSessionId), 'تم نسخ رابط الطلاب!'); });
 $('admin-search-input').addEventListener('input', renderRoster);
 
-// ترتيب أبجدي عربي (أ ب ت ث ج ...)
-function sortedRecs() { return [...records].sort((a, b) => a.studentName.localeCompare(b.studentName, 'ar')); }
+// ===== التصدير =====
 const safeFile = s => String(s).replace(/\s+/g, '_').replace(/[\/\\:*?"<>|]/g, '-');
+const exportRows = () => buildRows().map(x => [x.no, x.name, x.rec ? 'حاضر' : 'غائب', x.rec ? fmtTime(x.rec.timestamp) : '']);
 
-// ===== Export Excel =====
 $('export-excel-btn').addEventListener('click', () => {
   const cur = findSession(selectedAdminSessionId); if (!cur) return;
-  const recs = sortedRecs();
-  if (!recs.length) { showToast('الكشف فارغ', 'error'); return; }
   if (!window.XLSX) { showToast('مكتبة Excel لم تُحمّل، تأكد من الإنترنت', 'error'); return; }
-  const data = [['م', 'اسم الطالب', 'المادة', 'التاريخ', 'وقت التسجيل'],
-    ...recs.map((r, i) => [i + 1, r.studentName, cur.courseName, cur.sessionDate, fmtTime(r.timestamp)])];
-  const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{ wch: 5 }, { wch: 36 }, { wch: 24 }, { wch: 14 }, { wch: 14 }];
+  const ws = XLSX.utils.aoa_to_sheet([['م', 'اسم الطالب', 'الحالة', 'وقت التسجيل'], ...exportRows()]);
+  ws['!cols'] = [{ wch: 5 }, { wch: 44 }, { wch: 10 }, { wch: 14 }];
   const wb = XLSX.utils.book_new();
   wb.Workbook = { Views: [{ RTL: true }] };
   XLSX.utils.book_append_sheet(wb, ws, 'الحضور');
@@ -312,22 +369,18 @@ $('export-excel-btn').addEventListener('click', () => {
   showToast(`تم تنزيل الملف: ${name}`);
 });
 
-// ===== Export PDF (طباعة -> حفظ كـ PDF) =====
 $('export-pdf-btn').addEventListener('click', () => {
   const cur = findSession(selectedAdminSessionId); if (!cur) return;
-  const recs = sortedRecs();
-  if (!recs.length) { showToast('الكشف فارغ', 'error'); return; }
   const w = window.open('', '_blank');
   if (!w) { showToast('المتصفح منع النافذة، اسمح بالنوافذ المنبثقة', 'error'); return; }
-  const rows = recs.map((r, i) => `<tr><td>${i + 1}</td><td class="n">${esc(r.studentName)}</td><td>${fmtTime(r.timestamp)}</td></tr>`).join('');
+  const all = buildRows(), present = all.filter(x => x.rec).length;
+  const rows = all.map(x => `<tr class="${x.rec ? '' : 'a'}"><td>${x.no}</td><td class="n">${esc(x.name)}</td><td>${x.rec ? '✓' : ''}</td><td>${x.rec ? fmtTime(x.rec.timestamp) : ''}</td></tr>`).join('');
   w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>${esc(cur.courseName)} ${esc(cur.sessionDate)}</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
-  <style>body{font-family:'Cairo',sans-serif;padding:24px;color:#0f2942}h1{font-size:20px;margin:0 0 4px}p{margin:0 0 14px;color:#475569;font-size:13px}
-  table{width:100%;border-collapse:collapse;font-size:14px}th,td{border:1px solid #cbd5e1;padding:7px 10px;text-align:center}th{background:#e2e8f0}td.n{text-align:right}
-  tr{page-break-inside:avoid}</style></head><body>
-  <h1>كشف حضور: ${esc(cur.courseName)} (${esc(cur.sessionDate)})</h1><p>عدد الطلاب: ${recs.length}</p>
-  <table><thead><tr><th style="width:50px">م</th><th>اسم الطالب</th><th style="width:120px">وقت التسجيل</th></tr></thead><tbody>${rows}</tbody></table>
-  </body></html>`);
+  <style>body{font-family:'Cairo',sans-serif;padding:20px;color:#0f2942}h1{font-size:18px;margin:0 0 4px}p{margin:0 0 12px;color:#475569;font-size:12px}
+  table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #cbd5e1;padding:4px 8px;text-align:center}th{background:#e2e8f0}td.n{text-align:right}tr.a td{color:#94a3b8}tr{page-break-inside:avoid}</style></head><body>
+  <h1>كشف حضور: ${esc(cur.courseName)} (${esc(cur.sessionDate)})</h1><p>حاضر: ${present} | غائب: ${all.length - present} | الإجمالي: ${all.length}</p>
+  <table><thead><tr><th style="width:40px">م</th><th>اسم الطالب</th><th style="width:50px">حضور</th><th style="width:90px">الوقت</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
   w.document.close();
   setTimeout(() => { try { w.focus(); w.print(); } catch {} }, 900);
   showToast('اختار "حفظ كملف PDF" من شاشة الطباعة', 'info');
@@ -335,10 +388,9 @@ $('export-pdf-btn').addEventListener('click', () => {
 
 $('copy-whatsapp-btn').addEventListener('click', () => {
   const cur = findSession(selectedAdminSessionId); if (!cur) return;
-  const recs = sortedRecs();
-  if (!recs.length) { showToast('الكشف فارغ حالياً', 'error'); return; }
-  const head = `📋 كشف حضور: ${cur.courseName} (${cur.sessionDate})\nالعدد: ${recs.length} طالب\n------------------------\n`;
-  copyText(head + recs.map((r, i) => `${i + 1}. ${r.studentName}`).join('\n'), 'تم نسخ الأسماء!');
+  const pr = buildRows().filter(x => x.rec);
+  if (!pr.length) { showToast('مفيش حاضرين لسه', 'error'); return; }
+  copyText(`📋 كشف حضور: ${cur.courseName} (${cur.sessionDate})\nالحاضرين: ${pr.length}\n------------------------\n` + pr.map(x => `${x.no}. ${x.name}`).join('\n'), 'تم نسخ الحاضرين!');
 });
 
 // ===== Add student (admin) =====
@@ -391,14 +443,15 @@ $('session-form').addEventListener('submit', async e => {
   if (!courseName || !sessionDate) return;
   const id = editId || ('lec_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
   const createdAtMs = editId ? (findSession(editId)?.createdAtMs || Date.now()) : Date.now();
-  sessionModal.classList.add('hidden');
-  try {
-    await api({ action: 'saveSession', id, courseName, sessionDate, isOpen, createdAtMs, closeAfterMin });
+  await busy($('session-save-btn'), 'جاري الحفظ...', async () => {
+    try { await api({ action: 'saveSession', id, courseName, sessionDate, isOpen, createdAtMs, closeAfterMin }); }
+    catch (err) { showToast(err.message === 'timeout' ? 'السيرفر اتأخر، جرب تاني' : 'حدث خطأ أثناء حفظ المحاضرة', 'error'); return; }
+    sessionModal.classList.add('hidden');
     selectedAdminSessionId = id;
-    await loadAdminData();
+    loadAdminData().catch(() => {});
     if (!editId) copyText(studentUrl(id), `تم إنشاء ونسخ رابط "${courseName} (${sessionDate})"!`);
     else showToast('تم تحديث المحاضرة');
-  } catch (err) { showToast('حدث خطأ أثناء حفظ المحاضرة', 'error'); }
+  });
 });
 
 // ===== QR modal =====
@@ -420,29 +473,22 @@ $('qr-copy-btn').addEventListener('click', () => copyText($('qr-link-input').val
 $('roster-upload-btn').addEventListener('click', () => $('roster-modal').classList.remove('hidden'));
 $('roster-cancel').addEventListener('click', () => $('roster-modal').classList.add('hidden'));
 $('roster-save').addEventListener('click', async () => {
-  const names = $('roster-text').value.split('\n')
-    .map(s => s.replace(/^\s*\d+[\s.\-)]*/, '').trim().replace(/\s+/g, ' ')).filter(Boolean);
+  const names = $('roster-text').value.split('\n').map(s => s.replace(/^\s*\d+[\s.\-)]*/, '').trim().replace(/\s+/g, ' ')).filter(Boolean);
   if (!names.length) return;
   if (!await confirmDialog('رفع الكشف', `هيتم رفع ${names.length} اسم واستبدال الكشف القديم.`)) return;
-  try {
-    await api({ action: 'setRoster', names });
-    $('roster-modal').classList.add('hidden');
-    showToast(`تم رفع ${names.length} اسم`);
-  } catch { showToast('تعذر رفع الكشف', 'error'); }
+  await busy($('roster-save'), 'جاري الرفع...', async () => {
+    try {
+      await api({ action: 'setRoster', names });
+      $('roster-modal').classList.add('hidden'); $('roster-text').value = '';
+      rosterList = []; showToast(`تم رفع ${names.length} اسم`);
+      loadAdminData().catch(() => {});
+    } catch (err) {
+      showToast(err.message === 'busy' ? 'السيرفر مشغول، جرب كمان شوية' : err.message === 'timeout' ? 'السيرفر اتأخر، جرب تاني' : 'تعذر رفع الكشف', 'error');
+    }
+  });
 });
 
 // ===== Boot =====
-async function loadAdminData() {
-  let j = await api({ action: 'adminList', sid: selectedAdminSessionId || '' });
-  if (!selectedAdminSessionId || !j.sessions.some(x => x.id === selectedAdminSessionId)) {
-    const newest = [...j.sessions].sort((a, b) => (b.createdAtMs || 0) - (a.createdAtMs || 0))[0];
-    selectedAdminSessionId = newest ? newest.id : null;
-    if (selectedAdminSessionId) j = await api({ action: 'adminList', sid: selectedAdminSessionId });
-  }
-  sessionsList = j.sessions; counts = j.counts || {}; records = j.records;
-  renderAdminView();
-}
-
 async function bootstrapApp() {
   if (!isAdminMode && !isStudentLink) { activeStudentSession = null; renderStudentView(); return; }
   try {
@@ -453,7 +499,10 @@ async function bootstrapApp() {
       try { activeStudentSession = (await apiRetry({ action: 'session', sid: requestedSessionId })).session; }
       catch (err) { if (err.message === 'not_found') activeStudentSession = null; else throw err; }
       renderStudentView();
-      if (activeStudentSession && activeStudentSession.isOpen !== false && !getSaved(activeStudentSession.id)) loadRoster().catch(() => {});
+      if (activeStudentSession) {
+        if (getSaved(activeStudentSession.id)) verifyRegistration();
+        else if (activeStudentSession.isOpen !== false) loadRoster().catch(() => {});
+      }
     }
   } catch (err) { console.error(err); fatal(err.message); }
 }
