@@ -29,13 +29,14 @@ tailwind.config = { theme: { extend: {
 body{font-family:'Cairo',sans-serif;background:#f4f7fa;color:#1e293b;-webkit-tap-highlight-color:transparent}
 .fade-in{animation:fadeIn .3s ease-in-out}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+button:disabled{opacity:.6}
 </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
-<div id="toast-container" class="fixed top-4 left-4 right-4 z-50 flex flex-col items-center pointer-events-none gap-2"></div>
+<div id="toast-container" style="z-index:70" class="fixed top-4 left-4 right-4 flex flex-col items-center pointer-events-none gap-2"></div>
 
-<div id="confirm-modal" class="modal hidden"><div class="box max-w-sm">
+<div id="confirm-modal" style="z-index:60" class="modal hidden"><div class="box max-w-sm">
   <h3 id="confirm-title" class="font-bold text-lg text-rose-600 mb-2"></h3>
   <p id="confirm-message" class="text-slate-600 text-sm mb-6"></p>
   <div class="flex justify-end gap-3">
@@ -64,7 +65,7 @@ body{font-family:'Cairo',sans-serif;background:#f4f7fa;color:#1e293b;-webkit-tap
       <p class="text-xs text-slate-500 mt-1.5">العد بيبدأ من لحظة الضغط على "حفظ".</p></div>
     <div class="flex justify-end gap-3 pt-2">
       <button type="button" id="cancel-session-btn" class="btn-g">إلغاء</button>
-      <button type="submit" class="btn-p px-5">حفظ</button>
+      <button type="submit" id="session-save-btn" class="btn-p px-5">حفظ</button>
     </div>
   </form></div></div>
 
@@ -117,17 +118,30 @@ body{font-family:'Cairo',sans-serif;background:#f4f7fa;color:#1e293b;-webkit-tap
     </div>
   </header>
   <main class="flex-1 max-w-xl w-full mx-auto px-4 py-6 sm:py-8">
-    <div id="student-form-card" class="hidden card overflow-hidden fade-in">
-      <form id="attendance-form" class="p-6 sm:p-8 space-y-5" novalidate>
+    <div id="student-form-card" class="hidden card fade-in">
+      <form id="attendance-form" class="p-4 sm:p-6 space-y-4" novalidate>
         <div>
-          <label class="block text-base font-extrabold mb-2">دوّر على اسمك واختاره *</label>
-          <input type="search" id="student-search" autocomplete="off" placeholder="اكتب جزء من اسمك..." class="w-full px-4 py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:bg-white focus:border-teal-600 outline-none font-bold">
-          <div id="name-list" class="mt-3 max-h-[60vh] overflow-y-auto rounded-2xl border border-slate-200 divide-y divide-slate-100 bg-white"></div>
-          <p id="picked-label" class="hidden mt-3 text-sm font-extrabold text-teal-800 bg-teal-50 border border-teal-200 rounded-xl p-3"></p>
-          <p class="mt-2 text-xs text-slate-600 bg-teal-50 border border-teal-200 rounded-xl p-3">اختار اسمك انت بس. التسجيل مرة واحدة من هاتفك ومش هينفع تسجل لحد غيرك.</p>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-base font-extrabold text-academic-900">اختار اسمك من الكشف</label>
+            <span id="student-stats" class="text-xs font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-full"></span>
+          </div>
+          <div class="relative">
+            <input type="search" id="student-search" autocomplete="off" placeholder="ابحث باسمك..." class="w-full pr-11 pl-4 py-3.5 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:bg-white focus:border-teal-600 outline-none font-bold">
+            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+          </div>
+          <div class="mt-3 rounded-2xl border border-slate-200 overflow-hidden">
+            <div class="flex items-center gap-2 bg-slate-100 text-[11px] font-extrabold text-slate-500 px-3 py-2">
+              <span class="w-10 text-center">م</span><span class="flex-1">الاسم</span><span class="w-14 text-center">الحالة</span>
+            </div>
+            <div id="name-list" class="max-h-[55vh] overflow-y-auto divide-y divide-slate-100 bg-white"></div>
+          </div>
           <p id="name-error" class="hidden mt-2 text-xs font-bold text-rose-600"></p>
         </div>
-        <button type="submit" id="submit-btn" class="w-full py-4 rounded-2xl bg-gradient-to-l from-academic-900 to-teal-700 text-white font-extrabold text-lg shadow-lg disabled:opacity-60"><span id="submit-btn-text">تأكيد وتسجيل الحضور</span></button>
+        <div class="sticky bottom-3 space-y-2">
+          <p id="picked-label" class="hidden text-sm font-extrabold text-teal-900 bg-teal-50 border border-teal-300 rounded-xl p-3 shadow"></p>
+          <button type="submit" id="submit-btn" class="w-full py-4 rounded-2xl bg-gradient-to-l from-academic-900 to-teal-700 text-white font-extrabold text-lg shadow-lg disabled:opacity-60"><span id="submit-btn-text">تأكيد وتسجيل الحضور</span></button>
+        </div>
+        <p class="text-xs text-slate-500 text-center">التسجيل مرة واحدة من هاتفك ومش هينفع تسجل لحد غيرك.</p>
       </form>
     </div>
     <div id="student-receipt-card" class="hidden card border-teal-200 p-6 sm:p-8 text-center fade-in">
@@ -162,34 +176,38 @@ body{font-family:'Cairo',sans-serif;background:#f4f7fa;color:#1e293b;-webkit-tap
       </div>
       <div id="sessions-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
     </section>
-    <section class="card p-5 sm:p-6 space-y-5">
-      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-xs font-bold text-slate-500">كشف حضور:</span>
-          <h2 id="roster-session-title" class="text-xl font-extrabold text-academic-900"></h2>
-          <span id="roster-total-badge" class="bg-teal-100 text-teal-800 text-xs font-extrabold px-3 py-1 rounded-full">0 طالب</span>
-        </div>
-        <div class="flex flex-wrap gap-2.5">
-          <button id="add-student-btn" class="btn bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200">+ إضافة طالب</button>
-          <button id="copy-student-link-header-btn" class="btn bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200">نسخ رابط الطلاب</button>
-          <button id="copy-whatsapp-btn" class="btn-g">نسخ الأسماء</button>
-          <button id="export-excel-btn" class="btn text-white bg-emerald-600 hover:bg-emerald-700">تصدير Excel</button>
-          <button id="export-pdf-btn" class="btn text-white bg-rose-600 hover:bg-rose-700">تصدير PDF</button>
-        </div>
+    <section class="card p-4 sm:p-6 space-y-4">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs font-bold text-slate-500">كشف حضور:</span>
+        <h2 id="roster-session-title" class="text-lg sm:text-xl font-extrabold text-academic-900"></h2>
+      </div>
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="rounded-2xl bg-emerald-50 border border-emerald-200 py-3"><div id="st-present" class="text-2xl font-extrabold text-emerald-700">0</div><div class="text-[11px] font-bold text-emerald-700">حاضر</div></div>
+        <div class="rounded-2xl bg-rose-50 border border-rose-200 py-3"><div id="st-absent" class="text-2xl font-extrabold text-rose-600">0</div><div class="text-[11px] font-bold text-rose-600">غائب</div></div>
+        <div class="rounded-2xl bg-slate-50 border border-slate-200 py-3"><div id="st-total" class="text-2xl font-extrabold text-slate-700">0</div><div class="text-[11px] font-bold text-slate-500">الإجمالي</div></div>
+      </div>
+      <div class="h-2 rounded-full bg-slate-100 overflow-hidden"><div id="st-bar" class="h-full bg-emerald-500 transition-all" style="width:0%"></div></div>
+      <div class="flex flex-wrap gap-2">
+        <button id="copy-student-link-header-btn" class="btn bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200">نسخ رابط الطلاب</button>
+        <button id="copy-whatsapp-btn" class="btn-g">نسخ الحاضرين</button>
+        <button id="export-excel-btn" class="btn text-white bg-emerald-600 hover:bg-emerald-700">Excel</button>
+        <button id="export-pdf-btn" class="btn text-white bg-rose-600 hover:bg-rose-700">PDF</button>
+        <button id="add-student-btn" class="btn bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200">+ إضافة يدوي</button>
+      </div>
+      <div class="flex gap-2">
+        <button data-filter="all">الكل</button><button data-filter="present">الحاضرين</button><button data-filter="absent">الغايبين</button>
       </div>
       <input type="text" id="admin-search-input" placeholder="ابحث باسم الطالب..." class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-teal-600 outline-none text-sm font-semibold">
-      <div class="overflow-x-auto rounded-2xl border border-slate-200">
-        <table class="w-full text-right border-collapse">
-          <thead><tr class="bg-slate-50 border-b text-slate-600 text-sm font-extrabold">
-            <th class="py-3.5 px-4 w-16 text-center">#</th><th class="py-3.5 px-4">اسم الطالب</th><th class="py-3.5 px-4 w-40">وقت التسجيل</th><th class="py-3.5 px-4 w-20 text-center">حذف</th>
-          </tr></thead>
-          <tbody id="attendance-table-body" class="divide-y divide-slate-100 text-sm"></tbody>
-        </table>
+      <div class="rounded-2xl border border-slate-200 overflow-hidden">
+        <div class="flex items-center gap-2 bg-slate-100 text-[11px] font-extrabold text-slate-500 px-3 py-2">
+          <span class="w-9 text-center">م</span><span class="flex-1">اسم الطالب</span><span class="w-16 text-center">الحالة</span><span class="hidden sm:block w-20 text-center">الوقت</span><span class="w-14 text-center">إجراء</span>
+        </div>
+        <div id="attendance-table-body" class="max-h-[70vh] overflow-y-auto divide-y divide-slate-100 text-sm"></div>
       </div>
     </section>
   </main>
 </div>
 
-<script type="module" src="app.js?v=6"></script>
+<script type="module" src="app.js?v=8"></script>
 </body>
-  </html>
+        </html>
