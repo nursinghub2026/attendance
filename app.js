@@ -158,6 +158,7 @@ let rosterNames = [], takenSet = new Set(), pickedIdx = null;
 async function loadRoster() {
   const j = await apiRetry({ action: 'roster', sid: activeStudentSession.id });
   rosterNames = j.names || []; takenSet = new Set(j.taken || []); pickedIdx = null;
+  $('picked-label').classList.add('hidden');
   renderNameList();
 }
 function renderNameList() {
@@ -166,15 +167,23 @@ function renderNameList() {
   if (!rosterNames.length) { box.innerHTML = '<div class="p-4 text-center text-sm text-slate-400">الكشف لسه ماترفعش، كلم المحاضر.</div>'; return; }
   const items = rosterNames.map((n, i) => ({ n, i })).filter(x => { const nn = normName(x.n); return ws.every(w => nn.includes(w)); });
   if (!items.length) { box.innerHTML = '<div class="p-4 text-center text-sm text-slate-400">مفيش اسم بالشكل ده</div>'; return; }
-  box.innerHTML = items.slice(0, 60).map(({ n, i }) => {
+  box.innerHTML = items.map(({ n, i }) => {
     const taken = takenSet.has(i), sel = i === pickedIdx;
-    return `<button type="button" data-i="${i}" ${taken ? 'disabled' : ''} class="w-full text-right px-4 py-3 text-sm font-bold ${taken ? 'text-slate-300 bg-slate-50' : sel ? 'bg-teal-100 text-teal-900' : 'hover:bg-slate-50'}">${esc(n)}${taken ? ' <span class="text-xs">(مسجل)</span>' : ''}</button>`;
+    const mark = taken ? '<span class="text-[11px] font-bold text-slate-400">مسجل</span>'
+      : sel ? '<span class="text-teal-700 font-extrabold text-xl">✓</span>' : '';
+    return `<button type="button" data-i="${i}" ${taken ? 'disabled' : ''} class="w-full flex items-center gap-3 px-3 py-3 text-sm font-bold text-right ${taken ? 'text-slate-300 bg-slate-50' : sel ? 'bg-teal-100 text-teal-900' : 'hover:bg-slate-50'}">
+      <span class="w-8 shrink-0 text-center text-xs ${sel ? 'text-teal-700' : 'text-slate-400'}">${i + 1}</span>
+      <span class="flex-1">${esc(n)}</span>
+      <span class="w-10 shrink-0 text-center">${mark}</span></button>`;
   }).join('');
 }
 $('student-search').addEventListener('input', renderNameList);
 $('name-list').addEventListener('click', e => {
   const b = e.target.closest('[data-i]'); if (!b || b.disabled) return;
-  pickedIdx = Number(b.dataset.i); nameErr.classList.add('hidden'); renderNameList();
+  pickedIdx = Number(b.dataset.i); nameErr.classList.add('hidden');
+  const pl = $('picked-label');
+  pl.textContent = `اخترت: ${rosterNames[pickedIdx]}`; pl.classList.remove('hidden');
+  renderNameList();
 });
 
 $('attendance-form').addEventListener('submit', async e => {
@@ -184,7 +193,7 @@ $('attendance-form').addEventListener('submit', async e => {
   if (getSaved(s.id)) { renderStudentView(); return; }
   if (pickedIdx === null) { nameErr.textContent = 'اختار اسمك من القائمة.'; nameErr.classList.remove('hidden'); return; }
   const name = rosterNames[pickedIdx];
-  if (!await confirmDialog('تأكيد الاسم', `هل أنت "${name}"؟ التسجيل مرة واحدة ومش هينفع تغيره.`)) return;
+  if (!await confirmDialog('تأكيد الاسم', `هل أنت متأكد أن "${name}" هو اسمك؟ مش هتقدر تسجل اسم تاني بعد التأكيد.`)) return;
   submitBtn.disabled = true; submitText.textContent = 'جاري حفظ الحضور...';
   try {
     await submitWithRetry({ action: 'addRecord', sessionId: s.id, rosterIdx: pickedIdx, deviceId: getDeviceId() });
