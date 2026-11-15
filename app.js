@@ -150,40 +150,52 @@ function renderStudentView() {
   formCard.classList.remove('hidden');
 }
 
-const nameInput = $('student-name'), nameErr = $('name-error');
+// ===== اختيار الاسم من الكشف =====
+const nameErr = $('name-error');
 const submitBtn = $('submit-btn'), submitText = $('submit-btn-text');
-const ARABIC_NAME = /^[\u0600-\u06FF ]+$/;
+let rosterNames = [], takenSet = new Set(), pickedIdx = null;
 
-function showErr(el, input, msg) {
-  if (!msg) { el.classList.add('hidden'); input.classList.remove('border-rose-500'); return true; }
-  el.textContent = msg; el.classList.remove('hidden'); input.classList.add('border-rose-500'); return false;
+async function loadRoster() {
+  const j = await apiRetry({ action: 'roster', sid: activeStudentSession.id });
+  rosterNames = j.names || []; takenSet = new Set(j.taken || []); pickedIdx = null;
+  renderNameList();
 }
-function validateName() {
-  const raw = nameInput.value.trim().replace(/\s+/g, ' ');
-  if (!raw) return showErr(nameErr, nameInput, 'يرجى كتابة اسم الطالب.');
-  if (!ARABIC_NAME.test(raw)) return showErr(nameErr, nameInput, 'اكتب الاسم بالحروف العربية فقط.');
-  if (raw.split(' ').length < 3) return showErr(nameErr, nameInput, 'اكتب الاسم ثلاثياً أو رباعياً على الأقل كما في الكشف.');
-  return showErr(nameErr, nameInput, '');
+function renderNameList() {
+  const ws = normName($('student-search').value).split(' ').filter(Boolean);
+  const box = $('name-list');
+  if (!rosterNames.length) { box.innerHTML = '<div class="p-4 text-center text-sm text-slate-400">الكشف لسه ماترفعش، كلم المحاضر.</div>'; return; }
+  const items = rosterNames.map((n, i) => ({ n, i })).filter(x => { const nn = normName(x.n); return ws.every(w => nn.includes(w)); });
+  if (!items.length) { box.innerHTML = '<div class="p-4 text-center text-sm text-slate-400">مفيش اسم بالشكل ده</div>'; return; }
+  box.innerHTML = items.slice(0, 60).map(({ n, i }) => {
+    const taken = takenSet.has(i), sel = i === pickedIdx;
+    return `<button type="button" data-i="${i}" ${taken ? 'disabled' : ''} class="w-full text-right px-4 py-3 text-sm font-bold ${taken ? 'text-slate-300 bg-slate-50' : sel ? 'bg-teal-100 text-teal-900' : 'hover:bg-slate-50'}">${esc(n)}${taken ? ' <span class="text-xs">(مسجل)</span>' : ''}</button>`;
+  }).join('');
 }
-nameInput.addEventListener('input', () => { if (!nameErr.classList.contains('hidden')) validateName(); });
+$('student-search').addEventListener('input', renderNameList);
+$('name-list').addEventListener('click', e => {
+  const b = e.target.closest('[data-i]'); if (!b || b.disabled) return;
+  pickedIdx = Number(b.dataset.i); nameErr.classList.add('hidden'); renderNameList();
+});
 
 $('attendance-form').addEventListener('submit', async e => {
   e.preventDefault();
   const s = activeStudentSession;
   if (!s || s.isOpen === false) { showToast('التسجيل مغلق لهذه المحاضرة.', 'error'); return; }
   if (getSaved(s.id)) { renderStudentView(); return; }
-  if (!validateName()) return;
-  const cleanName = nameInput.value.trim().replace(/\s+/g, ' ');
+  if (pickedIdx === null) { nameErr.textContent = 'اختار اسمك من القائمة.'; nameErr.classList.remove('hidden'); return; }
+  const name = rosterNames[pickedIdx];
+  if (!await confirmDialog('تأكيد الاسم', `هل أنت "${name}"؟ التسجيل مرة واحدة ومش هينفع تغيره.`)) return;
   submitBtn.disabled = true; submitText.textContent = 'جاري حفظ الحضور...';
   try {
-    await submitWithRetry({ action: 'addRecord', sessionId: s.id, studentName: cleanName, deviceId: getDeviceId() });
-    saveReg(s.id, { studentName: cleanName, timestamp: new Date().toISOString() });
+    await submitWithRetry({ action: 'addRecord', sessionId: s.id, rosterIdx: pickedIdx, deviceId: getDeviceId() });
+    saveReg(s.id, { studentName: name, timestamp: new Date().toISOString() });
     showToast('تم تسجيل حضورك بنجاح!');
     renderStudentView();
   } catch (err) {
-    const m = { duplicate: 'هذا الاسم مسجل بالفعل في كشف هذه المحاضرة!', closed: 'التسجيل مغلق لهذه المحاضرة.', invalid_name: 'اكتب الاسم ثلاثياً بالعربية فقط.',
+    const m = { duplicate: 'الاسم ده اتسجل قبل كدا!', closed: 'التسجيل مغلق لهذه المحاضرة.', invalid_name: 'اختار اسمك من القائمة.',
       device_used: 'تم التسجيل من هذا الجهاز مسبقاً لهذه المحاضرة.' };
     if (err.message === 'closed') { activeStudentSession = { ...s, isOpen: false }; renderStudentView(); }
+    if (err.message === 'duplicate') loadRoster().catch(() => {});
     showToast(m[err.message] || 'حدث خطأ أثناء التسجيل، حاول مرة أخرى.', 'error');
   } finally {
     submitBtn.disabled = false; submitText.textContent = 'تأكيد وتسجيل الحضور';
@@ -395,6 +407,21 @@ function openQr(id) {
 $('close-qr-modal').addEventListener('click', () => qrModal.classList.add('hidden'));
 $('qr-copy-btn').addEventListener('click', () => copyText($('qr-link-input').value, 'تم نسخ الرابط!'));
 
+// ===== رفع كشف الأسماء (أدمن) =====
+$('roster-upload-btn').addEventListener('click', () => $('roster-modal').classList.remove('hidden'));
+$('roster-cancel').addEventListener('click', () => $('roster-modal').classList.add('hidden'));
+$('roster-save').addEventListener('click', async () => {
+  const names = $('roster-text').value.split('\n')
+    .map(s => s.replace(/^\s*\d+[\s.\-)]*/, '').trim().replace(/\s+/g, ' ')).filter(Boolean);
+  if (!names.length) return;
+  if (!await confirmDialog('رفع الكشف', `هيتم رفع ${names.length} اسم واستبدال الكشف القديم.`)) return;
+  try {
+    await api({ action: 'setRoster', names });
+    $('roster-modal').classList.add('hidden');
+    showToast(`تم رفع ${names.length} اسم`);
+  } catch { showToast('تعذر رفع الكشف', 'error'); }
+});
+
 // ===== Boot =====
 async function loadAdminData() {
   let j = await api({ action: 'adminList', sid: selectedAdminSessionId || '' });
@@ -417,6 +444,7 @@ async function bootstrapApp() {
       try { activeStudentSession = (await apiRetry({ action: 'session', sid: requestedSessionId })).session; }
       catch (err) { if (err.message === 'not_found') activeStudentSession = null; else throw err; }
       renderStudentView();
+      if (activeStudentSession && activeStudentSession.isOpen !== false && !getSaved(activeStudentSession.id)) loadRoster().catch(() => {});
     }
   } catch (err) { console.error(err); fatal(err.message); }
 }
