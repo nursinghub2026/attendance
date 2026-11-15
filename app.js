@@ -29,6 +29,35 @@ async function api(body) {
   return j;
 }
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const NO_RETRY = ['duplicate', 'closed', 'invalid_name', 'device_used', 'not_found'];
+
+async function apiRetry(body, tries = 4) {
+  for (let i = 1; ; i++) {
+    try { return await api(body); }
+    catch (err) {
+      if (NO_RETRY.includes(err.message) || i >= tries) throw err;
+      await sleep(1000 * i + Math.random() * 2000);
+    }
+  }
+}
+
+async function submitWithRetry(body) {
+  await sleep(Math.random() * 3000);
+  let ambiguous = false;
+  for (let i = 1; i <= 10; i++) {
+    try { await api(body); return; }
+    catch (err) {
+      const m = err.message;
+      if (ambiguous && (m === 'duplicate' || m === 'device_used')) return;
+      if (NO_RETRY.includes(m) || i === 10) throw err;
+      ambiguous = true;
+      submitText.textContent = `الضغط عالي، جاري المحاولة (${i})...`;
+      await sleep(1500 * i + Math.random() * 3000);
+    }
+  }
+}
+
 function baseUrl() { const u = new URL(location.href); u.search = ''; u.hash = ''; return u.toString(); }
 function studentUrl(id) { const u = new URL(baseUrl()); u.searchParams.set('sid', id); return u.toString(); }
 
@@ -147,7 +176,7 @@ $('attendance-form').addEventListener('submit', async e => {
   const cleanName = nameInput.value.trim().replace(/\s+/g, ' ');
   submitBtn.disabled = true; submitText.textContent = 'جاري حفظ الحضور...';
   try {
-    await api({ action: 'addRecord', sessionId: s.id, studentName: cleanName, deviceId: getDeviceId() });
+    await submitWithRetry({ action: 'addRecord', sessionId: s.id, studentName: cleanName, deviceId: getDeviceId() });
     saveReg(s.id, { studentName: cleanName, timestamp: new Date().toISOString() });
     showToast('تم تسجيل حضورك بنجاح!');
     renderStudentView();
@@ -240,7 +269,8 @@ function renderRoster() {
 $('copy-student-link-header-btn').addEventListener('click', () => { if (selectedAdminSessionId) copyText(studentUrl(selectedAdminSessionId), 'تم نسخ رابط الطلاب!'); });
 $('admin-search-input').addEventListener('input', renderRoster);
 
-function sortedRecs() { return [...records].sort((a, b) => (a.createdAtMs || 0) - (b.createdAtMs || 0)); }
+// ترتيب أبجدي عربي (أ ب ت ث ج ...)
+function sortedRecs() { return [...records].sort((a, b) => a.studentName.localeCompare(b.studentName, 'ar')); }
 const safeFile = s => String(s).replace(/\s+/g, '_').replace(/[\/\\:*?"<>|]/g, '-');
 
 // ===== Export Excel =====
@@ -384,7 +414,7 @@ async function bootstrapApp() {
       await loadAdminData();
       setInterval(() => { if (document.visibilityState === 'visible') loadAdminData().catch(() => {}); }, 30000);
     } else {
-      try { activeStudentSession = (await api({ action: 'session', sid: requestedSessionId })).session; }
+      try { activeStudentSession = (await apiRetry({ action: 'session', sid: requestedSessionId })).session; }
       catch (err) { if (err.message === 'not_found') activeStudentSession = null; else throw err; }
       renderStudentView();
     }
