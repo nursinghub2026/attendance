@@ -1,13 +1,50 @@
 const $ = id => document.getElementById(id);
 
-let loaderTimer = setTimeout(() => fatal('timeout: no response from server'), 25000);
+// ===== أيقونات خطية =====
+const ICONS = {
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  check: '<path d="m5 12 5 5L20 7"/>',
+  cal: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h3M20 17v4"/>',
+  edit: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  book: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M9 7h6"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+  sheet: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
+  x: '<path d="M6 6l12 12M18 6 6 18"/>',
+  cap: '<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5M22 9v6"/>',
+  hourglass: '<path d="M6 3h12M6 21h12M7 3c0 5 5 5 5 9s-5 4-5 9M17 3c0 5-5 5-5 9s5 4 5 9"/>',
+  chevR: '<path d="m9 6 6 6-6 6"/>',
+  chevL: '<path d="m15 6-6 6 6 6"/>'
+};
+const icon = (n, cls = 'w-4 h-4') => `<svg class="${cls} shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[n] || ''}</svg>`;
+function paintIcons(root = document) {
+  root.querySelectorAll('[data-ic]').forEach(el => {
+    if (el.dataset.done) return;
+    el.dataset.done = '1';
+    el.insertAdjacentHTML('afterbegin', icon(el.dataset.ic, el.dataset.ics || 'w-4 h-4'));
+  });
+}
+paintIcons();
+$('emblem').innerHTML = icon('cap', 'w-10 h-10');
+$('closed-ic').innerHTML = icon('lock', 'w-7 h-7');
+
+let loaderTimer = setTimeout(() => fatal('timeout: no response from server'), 70000);
 function hideLoader() { clearTimeout(loaderTimer); $('app-loader').classList.add('hidden'); }
 function fatal(msg) {
   const l = $('app-loader');
   if (l.classList.contains('hidden')) return;
   const hint = /Failed to fetch|NetworkError|Load failed|timeout/i.test(msg)
     ? 'تعذر الاتصال بالسكريبت: تأكد أن الوصول = Anyone، وأنك عملت إصدار جديد (New version)، وأن API_URL صحيح.' : '';
-  l.innerHTML = '<div class="max-w-sm text-center p-4"><p class="font-extrabold text-rose-600 mb-2">تعذر تشغيل النظام</p><p id="fm" class="text-xs text-slate-600 break-words" dir="ltr"></p><p id="fh" class="text-xs text-slate-500 mt-3"></p></div>';
+  l.innerHTML = '<div class="max-w-sm text-center p-4"><p class="font-extrabold text-rose-400 mb-2">تعذر تشغيل النظام</p><p id="fm" class="text-xs text-slate-300 break-words" dir="ltr"></p><p id="fh" class="text-xs text-gold-200 mt-3"></p></div>';
   $('fm').textContent = msg; $('fh').textContent = hint;
 }
 
@@ -22,6 +59,36 @@ const appId = 'attendance-system-v3';
 let sessionsList = [], counts = {}, records = [];
 let selectedAdminSessionId = null, activeStudentSession = null, closeTimer = null;
 
+// ===== المواد والدكاترة =====
+const BASIC_DRS = ['محمد عمر', 'حياة محمد', 'منى عبد الرحمن', 'السيدة جمال'];
+const DEFAULT_COURSES = [
+  { name: 'أساسيات نظري', doctors: [...BASIC_DRS] },
+  { name: 'أساسيات عملي', doctors: [...BASIC_DRS] },
+  { name: 'تشريح', doctors: ['إيمان السعيد'] },
+  { name: 'علم وظائف الأعضاء', doctors: ['منى عبدالباري'] },
+  { name: 'لغة إنجليزية 1', doctors: ['دينا حسن'] },
+  { name: 'علم الجودة', doctors: ['أميرة مصطفى'] },
+  { name: 'طرق تنمية ذاتية', doctors: ['زينب عيد'] },
+  { name: 'أخلاقيات المهنة والتشريعات', doctors: ['ناهد حافظ'] },
+  { name: 'مهارات التواصل', doctors: ['سمر عطية'] }
+];
+const cloneCourses = l => l.map(c => ({ name: c.name, doctors: [...c.doctors] }));
+let coursesList = cloneCourses(DEFAULT_COURSES);
+const stripDr = n => String(n || '').trim().replace(/^\s*د\s*[\/.]\s*/, '').replace(/\s+/g, ' ').trim();
+const dr = n => { const x = stripDr(n); return x ? 'د/ ' + x : ''; };
+const doctorsOf = name => (coursesList.find(c => c.name === name) || { doctors: [] }).doctors;
+
+async function loadCourses() {
+  try {
+    const l = (await api({ action: 'courses' })).courses;
+    if (Array.isArray(l) && l.length) coursesList = l;
+  } catch { /* نستخدم الافتراضي */ }
+}
+
+// التاريخ فقط (بنشيل الوقت من المحاضرات القديمة)
+const dOnly = s => String(s || '').split(' - ')[0];
+const cleanSession = s => s ? { ...s, sessionDate: dOnly(s.sessionDate) } : s;
+
 async function api(body, ms = 40000) {
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
   try {
@@ -33,35 +100,37 @@ async function api(body, ms = 40000) {
   finally { clearTimeout(t); }
 }
 async function busy(btn, label, fn) {
-  const old = btn.textContent; btn.disabled = true; btn.textContent = label;
-  try { return await fn(); } finally { btn.disabled = false; btn.textContent = old; }
+  const old = btn.innerHTML; btn.disabled = true; btn.textContent = label;
+  try { return await fn(); } finally { btn.disabled = false; btn.innerHTML = old; }
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const NO_RETRY = ['duplicate', 'closed', 'invalid_name', 'device_used', 'not_found'];
+const NO_RETRY = ['duplicate', 'closed', 'invalid_name', 'device_used', 'not_found', 'unknown_action'];
 
-async function apiRetry(body, tries = 4) {
+// إعادة محاولة ذكية: بتتحمل ضغط الطلاب (أخطاء الشبكة / السيرفر مشغول)
+async function apiRetry(body, tries = 6) {
   for (let i = 1; ; i++) {
     try { return await api(body); }
     catch (err) {
       if (NO_RETRY.includes(err.message) || i >= tries) throw err;
-      await sleep(1000 * i + Math.random() * 2000);
+      await sleep(Math.min(900 * i, 6000) + Math.random() * 2500);
     }
   }
 }
 
 async function submitWithRetry(body) {
-  await sleep(Math.random() * 3000);
+  await sleep(Math.random() * 2500);
   let ambiguous = false;
-  for (let i = 1; i <= 10; i++) {
+  for (let i = 1; i <= 14; i++) {
     try { await api(body); return; }
     catch (err) {
       const m = err.message;
-      if (ambiguous && (m === 'duplicate' || m === 'device_used')) return;
-      if (NO_RETRY.includes(m) || i === 10) throw err;
-      ambiguous = true;
-      submitText.textContent = `الضغط عالي، جاري المحاولة (${i})...`;
-      await sleep(1500 * i + Math.random() * 3000);
+      // لو الطلب السابق اتحفظ فعلاً والرد ضاع، الجهاز هيطلع مسجل: ده نجاح
+      if (ambiguous && m === 'device_used') return;
+      if (NO_RETRY.includes(m) || i === 14) throw err;
+      if (m !== 'busy') ambiguous = true;
+      submitText.textContent = `الضغط عالي، جاري المحاولة (${i})... لا تغلق الصفحة`;
+      await sleep(Math.min(1200 * i, 8000) + Math.random() * 3000);
     }
   }
 }
@@ -83,9 +152,9 @@ function getDeviceId() {
 }
 
 function showToast(message, type = 'success') {
-  const colors = { success: 'bg-teal-800', error: 'bg-rose-600', info: 'bg-academic-900' };
+  const colors = { success: 'bg-ink-900 border-gold-500', error: 'bg-rose-700 border-rose-300', info: 'bg-ink-800 border-gold-300' };
   const t = document.createElement('div');
-  t.className = `pointer-events-auto px-4 py-3 rounded-2xl shadow-xl text-white text-sm font-bold fade-in max-w-md ${colors[type] || colors.info}`;
+  t.className = `pointer-events-auto px-5 py-3 rounded-2xl shadow-2xl text-white text-sm font-bold fade-in max-w-md border-r-4 ${colors[type] || colors.info}`;
   t.textContent = message;
   $('toast-container').appendChild(t);
   setTimeout(() => t.remove(), 3500);
@@ -120,7 +189,7 @@ const normName = n => (n || '').trim().replace(/\s+/g, ' ').replace(/[أإآ]/g,
 const esc = s => !s ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 const findSession = id => sessionsList.find(s => s.id === id);
 
-// ===== بحث مرن: الهمزات / ة ه / ى ي / التشكيل / الأرقام / المسافات =====
+// ===== بحث مرن =====
 const fold = n => String(n || '')
   .replace(/[\u064B-\u065F\u0670\u0640\u06D6-\u06ED]/g, '')
   .replace(/[أإآٱ]/g, 'ا').replace(/ء/g, '')
@@ -135,34 +204,27 @@ const matchName = (name, q) => {
   return words.every(w => key.includes(w));
 };
 
-// ===== التاريخ والوقت =====
+// ===== التاريخ =====
 const DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const DOW_SHORT = ['أحد', 'اثنين', 'ثلاث', 'أربع', 'خميس', 'جمعة', 'سبت'];
 const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 const pad = n => String(n).padStart(2, '0');
 const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const nowHM = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const hmOf = ms => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 function t12(hm) { const [h, m] = hm.split(':').map(Number); return `${h % 12 || 12}:${pad(m)} ${h < 12 ? 'ص' : 'م'}`; }
-function buildSessionDate(iso, hm) {
+function buildSessionDate(iso) {
   const [y, m, d] = iso.split('-').map(Number);
-  return `${DAYS[new Date(y, m - 1, d).getDay()]} ${d}/${m}/${y}` + (hm ? ` - ${t12(hm)}` : '');
+  return `${DAYS[new Date(y, m - 1, d).getDay()]} ${d}/${m}/${y}`;
 }
 function parseSessionDate(str) {
   const m = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(str || '');
-  if (!m) return { iso: '', hm: '' };
-  const t = /(\d{1,2}):(\d{2}) (ص|م)/.exec(str || '');
-  let hm = '';
-  if (t) { let h = Number(t[1]) % 12; if (t[3] === 'م') h += 12; hm = `${pad(h)}:${t[2]}`; }
-  return { iso: `${m[3]}-${pad(m[2])}-${pad(m[1])}`, hm };
-}
-function splitSession(str) {
-  const i = (str || '').indexOf(' - ');
-  return i < 0 ? { date: str || '', time: '' } : { date: str.slice(0, i), time: str.slice(i + 3) };
+  return m ? `${m[3]}-${pad(m[2])}-${pad(m[1])}` : '';
 }
 
-// ===== منتقي التاريخ (تقويم) والوقت (ساعة) =====
+// ===== المنتقيات =====
 const pickerModal = $('picker-modal'), pickerBox = $('picker-box');
-const XBTN = '<button type="button" data-x class="w-9 h-9 rounded-full bg-slate-100 text-slate-500">✕</button>';
+const XBTN = `<button type="button" data-x class="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">${icon('x')}</button>`;
 
 function openPicker(render, onClick) {
   return new Promise(resolve => {
@@ -171,6 +233,21 @@ function openPicker(render, onClick) {
     pickerBox.onclick = e => onClick(e, close);
     render();
     pickerModal.classList.remove('hidden');
+  });
+}
+
+function pickFrom(title, items, cur) {
+  const draw = () => {
+    pickerBox.innerHTML = `
+      <div class="flex items-center justify-between mb-4"><h3 class="font-display font-bold text-2xl text-ink-900">${esc(title)}</h3>${XBTN}</div>
+      <div class="space-y-2 max-h-[60vh] overflow-y-auto">${items.map((it, i) => `
+        <button type="button" data-pi="${i}" class="w-full flex items-center justify-between gap-3 text-right px-4 py-3.5 rounded-2xl border font-bold text-ink-900 transition ${it.value === cur ? 'border-gold-500 bg-gold-200/30' : 'border-slate-200 hover:border-gold-400'}">
+          <span>${esc(it.label)}</span>${it.value === cur ? icon('check', 'w-4 h-4 text-gold-600') : ''}</button>`).join('')}</div>`;
+  };
+  return openPicker(draw, (e, close) => {
+    const t = e.target.closest('button'); if (!t) return;
+    if (t.hasAttribute('data-x')) return close(null);
+    if (t.dataset.pi !== undefined) return close(items[Number(t.dataset.pi)].value);
   });
 }
 
@@ -186,16 +263,16 @@ function pickDate(initIso) {
       cells += `<button type="button" data-d="${iso}" class="pk-day ${iso === sel ? 'on' : ''} ${iso === today ? 'today' : ''}">${d}</button>`;
     }
     pickerBox.innerHTML = `
-      <div class="flex items-center justify-between mb-3"><h3 class="font-extrabold text-lg text-academic-900">اختر التاريخ</h3>${XBTN}</div>
+      <div class="flex items-center justify-between mb-4"><h3 class="font-display font-bold text-2xl text-ink-900">اختر التاريخ</h3>${XBTN}</div>
       <div class="flex items-center justify-between mb-3">
-        <button type="button" data-nav="-1" class="pk-nav">→</button>
-        <div class="font-extrabold text-academic-900">${MONTHS[vm]} ${vy}</div>
-        <button type="button" data-nav="1" class="pk-nav">←</button>
+        <button type="button" data-nav="-1" class="pk-nav">${icon('chevR', 'w-5 h-5')}</button>
+        <div class="font-display font-bold text-xl text-ink-900">${MONTHS[vm]} ${vy}</div>
+        <button type="button" data-nav="1" class="pk-nav">${icon('chevL', 'w-5 h-5')}</button>
       </div>
       <div class="pk-grid7 mb-1">${DOW_SHORT.map(d => `<div class="pk-dow">${d}</div>`).join('')}</div>
       <div class="pk-grid7">${cells}</div>
       <div class="flex gap-3 mt-5">
-        <button type="button" data-today class="btn-g flex-1 py-3">النهاردة</button>
+        <button type="button" data-today class="btn-g flex-1 py-3">اليوم</button>
         <button type="button" data-ok class="btn-p flex-1 py-3">تم</button>
       </div>`;
   };
@@ -217,10 +294,10 @@ function pickTime(initHM) {
       ? Array.from({ length: 12 }, (_, i) => i + 1).map(v => `<button type="button" data-h="${v}" class="pk-cell ${v === h ? 'on' : ''}">${v}</button>`).join('')
       : Array.from({ length: 12 }, (_, i) => i * 5).map(v => `<button type="button" data-m="${v}" class="pk-cell ${v === m ? 'on' : ''}">${pad(v)}</button>`).join('');
     pickerBox.innerHTML = `
-      <div class="flex items-center justify-between"><h3 class="font-extrabold text-lg text-academic-900">اختر الوقت</h3>${XBTN}</div>
+      <div class="flex items-center justify-between"><h3 class="font-display font-bold text-2xl text-ink-900">وقت الإقفال</h3>${XBTN}</div>
       <div class="pk-disp"><button type="button" data-step="h" class="${step === 'h' ? 'act' : ''}">${h}</button><span>:</span><button type="button" data-step="m" class="${step === 'm' ? 'act' : ''}">${pad(m)}</button></div>
       <div class="flex gap-2 mb-4"><button type="button" data-ap="0" class="pk-ap ${!pm ? 'on' : ''}">ص</button><button type="button" data-ap="1" class="pk-ap ${pm ? 'on' : ''}">م</button></div>
-      <p class="text-xs font-bold text-slate-400 text-center mb-2">${step === 'h' ? 'اختار الساعة' : 'اختار الدقائق'}</p>
+      <p class="text-xs font-bold text-slate-400 text-center mb-2">${step === 'h' ? 'اختر الساعة' : 'اختر الدقائق'}</p>
       <div class="pk-cells">${cells}</div>
       <div class="flex gap-3 mt-5">
         <button type="button" data-now class="btn-g flex-1 py-3">الآن</button>
@@ -250,22 +327,23 @@ function renderStudentView() {
   const s = activeStudentSession;
   if (!s) {
     $('student-course-name').textContent = 'غير متاح'; $('student-session-date').textContent = '--';
-    $('student-session-time-wrap').classList.add('hidden');
+    $('student-doctor').classList.add('hidden');
     $('closed-title').textContent = 'الرابط غير صحيح أو المحاضرة غير موجودة';
     $('closed-message').textContent = 'يرجى الحصول على رابط الحضور الصحيح من المحاضر.';
     closed.classList.remove('hidden'); return;
   }
-  const sp = splitSession(s.sessionDate);
   $('student-course-name').textContent = s.courseName;
-  $('student-session-date').textContent = sp.date;
-  const tw = $('student-session-time-wrap');
-  if (sp.time) { $('student-session-time').textContent = sp.time; tw.classList.remove('hidden'); } else tw.classList.add('hidden');
-  document.title = `تسجيل حضور - ${s.courseName} (${s.sessionDate})`;
+  $('student-session-date').textContent = s.sessionDate;
+  const docEl = $('student-doctor');
+  if (s.doctor) { docEl.textContent = dr(s.doctor); docEl.classList.remove('hidden'); } else docEl.classList.add('hidden');
+  document.title = `تسجيل حضور - ${s.courseName}`;
   const saved = getSaved(s.id);
   if (saved) {
-    $('receipt-badge-text').textContent = 'تم تسجيل حضورك';
+    $('receipt-badge-text').textContent = 'إيصال تسجيل';
     $('receipt-name').textContent = saved.studentName;
     $('receipt-course').textContent = s.courseName;
+    $('receipt-doctor').textContent = dr(s.doctor);
+    $('receipt-doctor-row').classList.toggle('hidden', !s.doctor);
     $('receipt-date').textContent = s.sessionDate;
     $('receipt-time').textContent = fmtTime(saved.timestamp);
     receipt.classList.remove('hidden'); return;
@@ -276,7 +354,7 @@ function renderStudentView() {
     closed.classList.remove('hidden'); return;
   }
   if (s.closeAtMs) {
-    dl.textContent = `⏳ التسجيل متاح حتى ${fmtHM(s.closeAtMs)}`; dl.classList.remove('hidden');
+    dl.innerHTML = `${icon('hourglass')}<span>التسجيل متاح حتى ${fmtHM(s.closeAtMs)}</span>`; dl.classList.remove('hidden');
     const left = s.closeAtMs - Date.now();
     if (left > 0 && left < 2147483000) closeTimer = setTimeout(() => { activeStudentSession = { ...s, isOpen: false }; renderStudentView(); }, left + 500);
   }
@@ -296,18 +374,20 @@ async function loadRoster() {
 }
 function renderNameList() {
   const q = $('student-search').value;
-  $('student-clear').classList.toggle('hidden', !q);
+  const clr = $('student-clear');
+  clr.classList.toggle('hidden', !q); clr.classList.toggle('flex', !!q);
   const box = $('name-list'), keep = box.scrollTop;
-  $('student-stats').textContent = rosterNames.length ? `${takenSet.size} سجّلوا من ${rosterNames.length}` : '';
-  if (!rosterNames.length) { box.innerHTML = '<div class="p-6 text-center text-sm text-slate-400">الكشف لسه ماترفعش، كلم المحاضر.</div>'; return; }
+  $('student-stats').textContent = rosterNames.length ? `${takenSet.size} من ${rosterNames.length}` : '';
+  $('student-bar').style.width = rosterNames.length ? Math.round(takenSet.size / rosterNames.length * 100) + '%' : '0%';
+  if (!rosterNames.length) { box.innerHTML = '<div class="p-8 text-center text-sm text-slate-400">الكشف لسه ماترفعش، كلم المحاضر.</div>'; return; }
   const items = rosterNames.map((n, i) => ({ n, i })).filter(x => matchName(x.n, q));
-  if (!items.length) { box.innerHTML = '<div class="p-8 text-center text-sm text-slate-400">مفيش اسم بالشكل ده، جرب تكتب جزء تاني من اسمك</div>'; return; }
+  if (!items.length) { box.innerHTML = '<div class="p-10 text-center text-sm text-slate-400 leading-7">مفيش اسم بالشكل ده<br>جرّب تكتب جزء تاني من اسمك</div>'; return; }
   box.innerHTML = items.map(({ n, i }) => {
     const taken = takenSet.has(i), sel = i === pickedIdx;
     return `<button type="button" data-i="${i}" ${taken ? 'disabled' : ''} class="row ${taken ? 'row-taken' : sel ? 'row-sel' : ''}">
       <span class="num">${i + 1}</span>
       <span class="flex-1 text-right leading-6">${esc(n)}</span>
-      ${taken ? '<span class="tag-taken">تم التسجيل</span>' : sel ? '<span class="chk">✓</span>' : '<span class="ring-empty"></span>'}</button>`;
+      ${taken ? '<span class="tag-taken">مسجّل</span>' : sel ? `<span class="chk">${icon('check', 'w-4 h-4')}</span>` : '<span class="ring-empty"></span>'}</button>`;
   }).join('');
   box.scrollTop = keep;
 }
@@ -328,12 +408,12 @@ $('attendance-form').addEventListener('submit', async e => {
   if (getSaved(s.id)) { renderStudentView(); return; }
   if (pickedIdx === null) { nameErr.textContent = 'اختار اسمك من القائمة.'; nameErr.classList.remove('hidden'); return; }
   const name = rosterNames[pickedIdx];
-  if (!await confirmDialog('تأكيد الاسم', `هل أنت متأكد أن "${name}" هو اسمك؟ مش هتقدر تسجل اسم تاني بعد التأكيد.`)) return;
+  if (!await confirmDialog('تأكيد الاسم', `هل أنت متأكد أن "${name}" هو اسمك؟ لن تستطيع تسجيل اسم آخر بعد التأكيد.`)) return;
   submitBtn.disabled = true; submitText.textContent = 'جاري حفظ الحضور...';
   try {
     await submitWithRetry({ action: 'addRecord', sessionId: s.id, rosterIdx: pickedIdx, studentName: name, deviceId: getDeviceId() });
     saveReg(s.id, { studentName: name, rosterIdx: pickedIdx, timestamp: new Date().toISOString() });
-    showToast('تم تسجيل حضورك بنجاح!');
+    showToast('تم تسجيل حضورك بنجاح');
     renderStudentView();
   } catch (err) {
     const m = { duplicate: 'الاسم ده اتسجل قبل كدا!', closed: 'التسجيل مغلق لهذه المحاضرة.', invalid_name: 'الكشف اتحدّث، اختار اسمك تاني.',
@@ -347,30 +427,27 @@ $('attendance-form').addEventListener('submit', async e => {
 });
 
 // لو الأدمن حذف تسجيل الطالب، نمسح القفل من موبايله ونرجّعله القائمة
-async function verifyRegistration() {
+function verifyRegistration(j) {
   const s = activeStudentSession, saved = s && getSaved(s.id);
-  if (!saved) return;
-  try {
-    const j = await api({ action: 'roster', sid: s.id });
-    const names = j.names || [];
-    if (!names.length) return;
-    const taken = new Set(j.taken || []);
-    let idx = names.findIndex(n => normName(n) === normName(saved.studentName));
-    if (idx < 0 && Number.isInteger(saved.rosterIdx)) idx = saved.rosterIdx;
-    if (idx < 0 || !taken.has(idx)) {
-      try { localStorage.removeItem(lockKey(s.id)); } catch {}
-      renderStudentView();
-      if (s.isOpen !== false) loadRoster().catch(() => {});
-      showToast('تم إلغاء تسجيلك، تقدر تسجل من جديد', 'info');
-    }
-  } catch {}
+  if (!saved || !j) return;
+  const names = j.names || [];
+  if (!names.length) return;
+  const taken = new Set(j.taken || []);
+  let idx = names.findIndex(n => normName(n) === normName(saved.studentName));
+  if (idx < 0 && Number.isInteger(saved.rosterIdx)) idx = saved.rosterIdx;
+  if (idx < 0 || !taken.has(idx)) {
+    try { localStorage.removeItem(lockKey(s.id)); } catch {}
+    renderStudentView();
+    if (s.isOpen !== false) renderNameList();
+    showToast('تم إلغاء تسجيلك، تقدر تسجل من جديد', 'info');
+  }
 }
 
 // ===== Admin view =====
 function renderAdminView() {
   hideLoader();
   $('admin-mode-wrapper').classList.remove('hidden');
-  document.title = 'لوحة تحكم الأدمن';
+  document.title = 'لوحة تحكم الحضور';
   const sorted = [...sessionsList].sort((a, b) => (b.createdAtMs || 0) - (a.createdAtMs || 0));
   if (!selectedAdminSessionId || !sorted.some(s => s.id === selectedAdminSessionId)) selectedAdminSessionId = sorted[0]?.id || null;
   renderSessionsGrid(sorted);
@@ -379,26 +456,29 @@ function renderAdminView() {
 
 function renderSessionsGrid(sorted) {
   const grid = $('sessions-grid');
-  if (!sorted.length) { grid.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400 text-sm card">لا توجد مواد بعد. اضغط "+ محاضرة".</div>'; return; }
+  if (!sorted.length) { grid.innerHTML = '<div class="col-span-full text-center py-12 text-slate-400 text-sm card">لا توجد محاضرات بعد. اضغط "محاضرة" للبدء.</div>'; return; }
   grid.innerHTML = sorted.map(s => {
     const sel = s.id === selectedAdminSessionId, id = esc(s.id);
     const expired = s.rawOpen && !s.isOpen;
-    const badge = s.isOpen ? '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">● مفتوح</span>'
-      : `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200">${expired ? 'انتهى الوقت' : 'مغلق'}</span>`;
-    const until = s.isOpen && s.closeAtMs ? `<div class="text-[11px] font-bold text-amber-700 mt-1.5">⏳ يقفل ${fmtHM(s.closeAtMs)}</div>` : '';
-    return `<div data-select-session="${id}" class="cursor-pointer rounded-3xl p-4 border-2 flex flex-col gap-3 bg-white transition shadow-sm ${sel ? 'border-teal-500 ring-4 ring-teal-100' : 'border-transparent hover:border-slate-200'}">
+    const badge = s.isOpen
+      ? '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-ink-900 text-gold-300 shrink-0"><i class="live w-1.5 h-1.5 rounded-full bg-gold-400"></i>مفتوح</span>'
+      : `<span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-slate-100 text-slate-500 shrink-0">${expired ? 'انتهى الوقت' : 'مغلق'}</span>`;
+    const until = s.isOpen && s.closeAtMs ? `<div class="flex items-center gap-1.5 text-[11px] font-bold text-gold-600 mt-2">${icon('hourglass', 'w-3.5 h-3.5')}يقفل ${fmtHM(s.closeAtMs)}</div>` : '';
+    const doc = s.doctor ? `<div class="flex items-center gap-1.5 text-xs font-extrabold text-gold-600 mb-2">${icon('user', 'w-3.5 h-3.5')}${esc(dr(s.doctor))}</div>` : '';
+    return `<div data-select-session="${id}" class="cursor-pointer rounded-3xl p-4 border-2 flex flex-col gap-3 bg-white transition shadow-sm ${sel ? 'border-gold-500 shadow-xl ring-4 ring-gold-500/15' : 'border-transparent hover:border-gold-300'}">
       <div>
-        <div class="flex items-start justify-between gap-2 mb-1.5"><h3 class="font-extrabold text-base text-academic-900 leading-6">${esc(s.courseName)}</h3>${badge}</div>
+        <div class="flex items-start justify-between gap-2 mb-1.5"><h3 class="font-display font-bold text-xl text-ink-900 leading-7">${esc(s.courseName)}</h3>${badge}</div>
+        ${doc}
         <div class="flex items-center justify-between gap-2 text-xs text-slate-500 font-semibold">
-          <span>📅 ${esc(s.sessionDate)}</span>
-          <span class="font-extrabold bg-slate-100 px-2.5 py-0.5 rounded-lg shrink-0">${counts[s.id] || 0} حاضر</span>
+          <span class="flex items-center gap-1.5">${icon('cal', 'w-3.5 h-3.5')}${esc(s.sessionDate)}</span>
+          <span class="font-extrabold bg-gold-200/40 text-ink-800 px-2.5 py-1 rounded-lg shrink-0">${counts[s.id] || 0} حاضر</span>
         </div>${until}
       </div>
       <div class="pt-3 border-t border-slate-100 flex gap-1.5" data-stop>
-        <button data-copy-session="${id}" class="flex-1 py-2 rounded-xl bg-academic-900 hover:bg-academic-800 text-white font-bold text-xs">رابط الطلاب</button>
-        <button data-qr-session="${id}" class="px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold">QR</button>
-        <button data-edit-session="${id}" class="px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold">تعديل</button>
-        <button data-delete-session="${id}" class="px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold">حذف</button>
+        <button data-copy-session="${id}" class="flex-1 py-2.5 rounded-xl bg-gradient-to-l from-ink-900 to-ink-700 text-white font-bold text-xs inline-flex items-center justify-center gap-1.5">${icon('link', 'w-3.5 h-3.5')}رابط الطلاب</button>
+        <button data-qr-session="${id}" title="QR" class="w-10 rounded-xl bg-slate-100 hover:bg-gold-200/50 text-ink-800 flex items-center justify-center">${icon('qr')}</button>
+        <button data-edit-session="${id}" title="تعديل" class="w-10 rounded-xl bg-slate-100 hover:bg-gold-200/50 text-ink-800 flex items-center justify-center">${icon('edit')}</button>
+        <button data-delete-session="${id}" title="حذف" class="w-10 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center">${icon('trash')}</button>
       </div></div>`;
   }).join('');
 
@@ -406,19 +486,19 @@ function renderSessionsGrid(sorted) {
   grid.querySelectorAll('[data-select-session]').forEach(c => c.addEventListener('click', async () => {
     selectedAdminSessionId = c.dataset.selectSession; await loadAdminData();
   }));
-  grid.querySelectorAll('[data-copy-session]').forEach(b => b.addEventListener('click', () => copyText(studentUrl(b.dataset.copySession), 'تم نسخ رابط الطلاب!')));
+  grid.querySelectorAll('[data-copy-session]').forEach(b => b.addEventListener('click', () => copyText(studentUrl(b.dataset.copySession), 'تم نسخ رابط الطلاب')));
   grid.querySelectorAll('[data-qr-session]').forEach(b => b.addEventListener('click', () => openQr(b.dataset.qrSession)));
   grid.querySelectorAll('[data-edit-session]').forEach(b => b.addEventListener('click', () => openSessionModal(b.dataset.editSession)));
   grid.querySelectorAll('[data-delete-session]').forEach(b => b.addEventListener('click', async () => {
     const id = b.dataset.deleteSession, s = findSession(id);
-    if (!await confirmDialog('حذف مادة / محاضرة', `هل أنت متأكد من حذف "${s?.courseName}" وكل أسماء طلابها؟`)) return;
-    try { await api({ action: 'deleteSession', id }); await loadAdminData(); showToast('تم حذف المادة', 'info'); }
-    catch (err) { showToast('تعذر حذف المادة', 'error'); }
+    if (!await confirmDialog('حذف محاضرة', `هل أنت متأكد من حذف "${s?.courseName}" وكل تسجيلات طلابها؟`)) return;
+    try { await api({ action: 'deleteSession', id }); await loadAdminData(); showToast('تم حذف المحاضرة', 'info'); }
+    catch (err) { showToast('تعذر حذف المحاضرة', 'error'); }
   }));
 }
 
 let rosterList = [], adminFilter = 'all';
-const pillCls = on => `px-4 py-2 rounded-full text-xs font-extrabold border transition ${on ? 'bg-academic-900 text-white border-academic-900' : 'bg-white text-slate-600 border-slate-200'}`;
+const pillCls = on => `px-5 py-2 rounded-full text-xs font-extrabold border transition ${on ? 'bg-ink-900 text-gold-300 border-ink-900' : 'bg-white text-slate-600 border-slate-200 hover:border-gold-400'}`;
 
 function buildRows() {
   const byName = new Map(), used = new Set();
@@ -431,9 +511,9 @@ function buildRows() {
 function renderRoster() {
   const cur = findSession(selectedAdminSessionId), body = $('attendance-table-body');
   document.querySelectorAll('[data-filter]').forEach(b => b.className = pillCls(b.dataset.filter === adminFilter));
-  if (!cur) { $('roster-session-title').textContent = 'لم يتم اختيار مادة'; $('roster-session-sub').textContent = ''; body.innerHTML = ''; return; }
+  if (!cur) { $('roster-session-title').textContent = 'لم يتم اختيار محاضرة'; $('roster-session-sub').textContent = ''; body.innerHTML = ''; return; }
   $('roster-session-title').textContent = cur.courseName;
-  $('roster-session-sub').textContent = `📅 ${cur.sessionDate}`;
+  $('roster-session-sub').textContent = [dr(cur.doctor), cur.sessionDate].filter(Boolean).join('  —  ');
   const all = buildRows(), present = all.filter(x => x.rec).length, total = all.length;
   const pct = total ? Math.round(present / total * 100) : 0;
   $('st-present').textContent = present; $('st-absent').textContent = total - present; $('st-total').textContent = total;
@@ -441,17 +521,17 @@ function renderRoster() {
   const q = $('admin-search-input').value;
   const rows = all.filter(x => (adminFilter === 'all' || (adminFilter === 'present') === !!x.rec) && matchName(x.name, q));
   if (!rows.length) { body.innerHTML = '<div class="py-12 text-center text-slate-400 font-bold">مفيش نتائج</div>'; return; }
-  body.innerHTML = rows.map(x => `<div class="flex items-center gap-2 px-3 py-2.5 ${x.rec ? 'bg-emerald-50/60' : ''}">
+  body.innerHTML = rows.map(x => `<div class="flex items-center gap-2 px-3 py-2.5 ${x.rec ? 'bg-gold-200/20' : ''}">
     <span class="w-9 text-center text-xs font-extrabold text-slate-400">${x.no}</span>
-    <span class="flex-1 font-bold leading-6 ${x.rec ? 'text-slate-800' : 'text-slate-500'}">${esc(x.name)}${x.extra ? ' <span class="text-[10px] text-amber-600">(يدوي)</span>' : ''}</span>
-    <span class="w-12 text-center">${x.rec ? '<span class="inline-flex w-7 h-7 items-center justify-center rounded-full bg-emerald-500 text-white font-extrabold">✓</span>' : '<span class="text-slate-300">—</span>'}</span>
+    <span class="flex-1 font-bold leading-6 ${x.rec ? 'text-ink-900' : 'text-slate-500'}">${esc(x.name)}${x.extra ? ' <span class="text-[10px] text-gold-600">(يدوي)</span>' : ''}</span>
+    <span class="w-12 flex justify-center">${x.rec ? `<span class="inline-flex w-7 h-7 items-center justify-center rounded-full bg-ink-900 text-gold-300">${icon('check')}</span>` : '<span class="text-slate-300">—</span>'}</span>
     <span class="hidden sm:block w-20 text-center text-[11px] font-semibold text-slate-500">${x.rec ? fmtTime(x.rec.timestamp) : ''}</span>
     <span class="w-14 text-center">${x.rec ? `<button data-del-rec="${esc(x.rec.id)}" class="text-rose-500 text-xs font-bold px-1.5 py-1 rounded-lg hover:bg-rose-50">حذف</button>`
-      : `<button data-add-rec="${x.no - 1}" class="text-emerald-600 text-xs font-bold px-1.5 py-1 rounded-lg hover:bg-emerald-50">تسجيل</button>`}</span></div>`).join('');
+      : `<button data-add-rec="${x.no - 1}" class="text-gold-600 text-xs font-bold px-1.5 py-1 rounded-lg hover:bg-gold-200/40">تسجيل</button>`}</span></div>`).join('');
   body.querySelectorAll('[data-del-rec]').forEach(btn => btn.addEventListener('click', async () => {
     const id = btn.dataset.delRec, rec = records.find(r => r.id === id);
-    if (!await confirmDialog('حذف اسم طالب', `هل تريد حذف "${rec?.studentName || ''}" من الكشف؟`)) return;
-    try { await api({ action: 'deleteRecord', id }); await loadAdminData(); showToast('تم حذف الاسم', 'info'); }
+    if (!await confirmDialog('حذف تسجيل', `هل تريد حذف تسجيل "${rec?.studentName || ''}"؟`)) return;
+    try { await api({ action: 'deleteRecord', id }); await loadAdminData(); showToast('تم حذف التسجيل', 'info'); }
     catch { showToast('حدث خطأ أثناء الحذف', 'error'); }
   }));
   body.querySelectorAll('[data-add-rec]').forEach(btn => btn.addEventListener('click', async () => {
@@ -471,11 +551,11 @@ async function loadAdminData() {
     if (selectedAdminSessionId) j = await api({ action: 'adminList', sid: selectedAdminSessionId });
   }
   if (!rosterList.length) { try { rosterList = (await api({ action: 'roster', sid: selectedAdminSessionId || '' })).names || []; } catch {} }
-  sessionsList = j.sessions; counts = j.counts || {}; records = j.records;
+  sessionsList = j.sessions.map(cleanSession); counts = j.counts || {}; records = j.records;
   renderAdminView();
 }
 
-$('copy-student-link-header-btn').addEventListener('click', () => { if (selectedAdminSessionId) copyText(studentUrl(selectedAdminSessionId), 'تم نسخ رابط الطلاب!'); });
+$('copy-student-link-header-btn').addEventListener('click', () => { if (selectedAdminSessionId) copyText(studentUrl(selectedAdminSessionId), 'تم نسخ رابط الطلاب'); });
 $('admin-search-input').addEventListener('input', renderRoster);
 
 // ===== التصدير =====
@@ -485,8 +565,11 @@ const exportRows = () => buildRows().map(x => [x.no, x.name, x.rec ? 'حاضر' 
 $('export-excel-btn').addEventListener('click', () => {
   const cur = findSession(selectedAdminSessionId); if (!cur) return;
   if (!window.XLSX) { showToast('مكتبة Excel لم تُحمّل، تأكد من الإنترنت', 'error'); return; }
-  const ws = XLSX.utils.aoa_to_sheet([['م', 'اسم الطالب', 'الحالة', 'وقت التسجيل'], ...exportRows()]);
-  ws['!cols'] = [{ wch: 5 }, { wch: 44 }, { wch: 10 }, { wch: 14 }];
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['المادة', cur.courseName], ['الدكتور', dr(cur.doctor)], ['التاريخ', cur.sessionDate], [],
+    ['م', 'اسم الطالب', 'الحالة', 'وقت التسجيل'], ...exportRows()
+  ]);
+  ws['!cols'] = [{ wch: 10 }, { wch: 44 }, { wch: 10 }, { wch: 14 }];
   const wb = XLSX.utils.book_new();
   wb.Workbook = { Views: [{ RTL: true }] };
   XLSX.utils.book_append_sheet(wb, ws, 'الحضور');
@@ -502,27 +585,27 @@ $('export-pdf-btn').addEventListener('click', () => {
   const all = buildRows(), present = all.filter(x => x.rec).length;
   const rows = all.map(x => `<tr class="${x.rec ? '' : 'a'}"><td>${x.no}</td><td class="n">${esc(x.name)}</td><td>${x.rec ? '✓' : ''}</td><td>${x.rec ? fmtTime(x.rec.timestamp) : ''}</td></tr>`).join('');
   w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>${esc(cur.courseName)} ${esc(cur.sessionDate)}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
-  <style>body{font-family:'Cairo',sans-serif;padding:20px;color:#0f2942}h1{font-size:18px;margin:0 0 4px}p{margin:0 0 12px;color:#475569;font-size:12px}
-  table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #cbd5e1;padding:4px 8px;text-align:center}th{background:#e2e8f0}td.n{text-align:right}tr.a td{color:#94a3b8}tr{page-break-inside:avoid}</style></head><body>
-  <h1>كشف حضور: ${esc(cur.courseName)}</h1><p>${esc(cur.sessionDate)} | حاضر: ${present} | غائب: ${all.length - present} | الإجمالي: ${all.length}</p>
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@700&family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+  <style>body{font-family:'Cairo',sans-serif;padding:24px;color:#0b1b2e}h1{font-family:'Amiri',serif;font-size:24px;margin:0 0 4px;border-bottom:2px solid #c9a45c;padding-bottom:8px}h2{font-size:14px;margin:6px 0 0;color:#a98542}p{margin:8px 0 14px;color:#475569;font-size:12px}
+  table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #d9cfb6;padding:5px 8px;text-align:center}th{background:#0b1b2e;color:#e2c88f}td.n{text-align:right}tr.a td{color:#94a3b8}tr{page-break-inside:avoid}</style></head><body>
+  <h1>كشف حضور: ${esc(cur.courseName)}</h1>${cur.doctor ? `<h2>${esc(dr(cur.doctor))}</h2>` : ''}<p>${esc(cur.sessionDate)} | حاضر: ${present} | غائب: ${all.length - present} | الإجمالي: ${all.length}</p>
   <table><thead><tr><th style="width:40px">م</th><th>اسم الطالب</th><th style="width:50px">حضور</th><th style="width:90px">الوقت</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
   w.document.close();
   setTimeout(() => { try { w.focus(); w.print(); } catch {} }, 900);
-  showToast('اختار "حفظ كملف PDF" من شاشة الطباعة', 'info');
+  showToast('اختر "حفظ كملف PDF" من شاشة الطباعة', 'info');
 });
 
 $('copy-whatsapp-btn').addEventListener('click', () => {
   const cur = findSession(selectedAdminSessionId); if (!cur) return;
   const pr = buildRows().filter(x => x.rec);
   if (!pr.length) { showToast('مفيش حاضرين لسه', 'error'); return; }
-  copyText(`📋 كشف حضور: ${cur.courseName}\n📅 ${cur.sessionDate}\nالحاضرين: ${pr.length}\n------------------------\n` + pr.map(x => `${x.no}. ${x.name}`).join('\n'), 'تم نسخ الحاضرين!');
+  copyText(`كشف حضور: ${cur.courseName}\n${cur.doctor ? dr(cur.doctor) + '\n' : ''}التاريخ: ${cur.sessionDate}\nالحاضرين: ${pr.length}\n------------------------\n` + pr.map(x => `${x.no}. ${x.name}`).join('\n'), 'تم نسخ الحاضرين');
 });
 
 // ===== Add student (admin) =====
 const addModal = $('add-modal');
 $('add-student-btn').addEventListener('click', () => {
-  if (!selectedAdminSessionId) { showToast('اختار مادة الأول', 'error'); return; }
+  if (!selectedAdminSessionId) { showToast('اختار محاضرة الأول', 'error'); return; }
   $('add-name-input').value = ''; addModal.classList.remove('hidden'); $('add-name-input').focus();
 });
 $('add-cancel-btn').addEventListener('click', () => addModal.classList.add('hidden'));
@@ -542,45 +625,60 @@ $('add-form').addEventListener('submit', async e => {
 
 // ===== Session modal =====
 const sessionModal = $('session-modal');
-let closeMode = 'none', sDate = '', sTime = '', sClose = '';
+let closeMode = 'none', sDate = '', sClose = '', sCourse = '', sDoctor = '';
 
 function refreshSessionLabels() {
-  $('session-date-btn').innerHTML = `<span>${sDate ? buildSessionDate(sDate, '') : 'اختار التاريخ'}</span><span>📅</span>`;
-  $('session-time-btn').innerHTML = `<span>${sTime ? t12(sTime) : 'اختار الوقت'}</span><span>🕐</span>`;
-  $('session-close-btn').innerHTML = `<span>${sClose ? t12(sClose) : 'اختار وقت الإقفال'}</span><span>⏰</span>`;
-  $('session-preview').textContent = sDate ? `هيظهر للطلاب: ${buildSessionDate(sDate, sTime)}` : 'اختار التاريخ';
+  $('session-course-btn').innerHTML = `<span class="${sCourse ? '' : 'text-slate-400'}">${sCourse ? esc(sCourse) : 'اختر المادة'}</span>${icon('book', 'w-5 h-5 text-gold-600')}`;
+  const docs = doctorsOf(sCourse);
+  $('session-doctor-btn').innerHTML = `<span class="${sDoctor ? '' : 'text-slate-400'}">${sDoctor ? esc(dr(sDoctor)) : (docs.length ? 'اختر الدكتور' : '—')}</span>${icon('user', 'w-5 h-5 text-gold-600')}`;
+  $('session-date-btn').innerHTML = `<span>${sDate ? buildSessionDate(sDate) : 'اختر التاريخ'}</span>${icon('cal', 'w-5 h-5 text-gold-600')}`;
+  $('session-close-btn').innerHTML = `<span>${sClose ? t12(sClose) : 'اختر وقت الإقفال'}</span>${icon('clock', 'w-5 h-5 text-gold-600')}`;
+  const parts = [sCourse, dr(sDoctor), sDate ? buildSessionDate(sDate) : ''].filter(Boolean);
+  $('session-preview').textContent = parts.length ? `سيظهر للطلاب: ${parts.join('  —  ')}` : 'اختر المادة والتاريخ';
 }
 function setCloseMode(m) {
   closeMode = m;
   document.querySelectorAll('[data-closemode]').forEach(b => {
     const on = b.dataset.closemode === m;
-    b.className = 'seg ' + (on ? 'bg-academic-900 text-white border-academic-900' : 'bg-white text-slate-600 border-slate-200');
+    b.className = 'seg ' + (on ? 'bg-ink-900 text-gold-300 border-ink-900' : 'bg-white text-slate-600 border-slate-200');
   });
   $('session-close-wrap').classList.toggle('hidden', m !== 'time');
 }
 function openSessionModal(editId = null) {
   const s = editId ? findSession(editId) : null;
   if (editId && !s) return;
-  $('session-modal-title').textContent = s ? 'تعديل بيانات المحاضرة' : 'إضافة مادة / محاضرة جديدة';
+  $('session-modal-title').textContent = s ? 'تعديل بيانات المحاضرة' : 'إضافة محاضرة';
   $('session-edit-id').value = s ? s.id : '';
-  $('session-course-input').value = s ? s.courseName : '';
-  const p = s ? parseSessionDate(s.sessionDate) : { iso: '', hm: '' };
-  sDate = p.iso || todayISO();
-  sTime = s ? p.hm : nowHM();
+  sCourse = s ? s.courseName : '';
+  sDoctor = s ? (s.doctor || '') : '';
+  sDate = (s && parseSessionDate(s.sessionDate)) || todayISO();
   sClose = '';
   $('session-open-input').checked = s ? s.rawOpen !== false : true;
-  if (s && s.closeAtMs) {
-    const d = new Date(s.closeAtMs);
-    sClose = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    setCloseMode('time');
-  } else setCloseMode('none');
+  if (s && s.closeAtMs) { sClose = hmOf(s.closeAtMs); setCloseMode('time'); } else setCloseMode('none');
   refreshSessionLabels();
   sessionModal.classList.remove('hidden');
-  $('session-course-input').focus();
 }
+
+$('session-course-btn').addEventListener('click', async () => {
+  const items = coursesList.map(c => ({ value: c.name, label: c.name }));
+  if (sCourse && !items.some(i => i.value === sCourse)) items.unshift({ value: sCourse, label: sCourse });
+  const v = await pickFrom('اختر المادة', items, sCourse);
+  if (!v) return;
+  sCourse = v;
+  const docs = doctorsOf(v);
+  if (docs.length === 1) sDoctor = docs[0];
+  else if (!docs.includes(sDoctor)) sDoctor = '';
+  refreshSessionLabels();
+});
+$('session-doctor-btn').addEventListener('click', async () => {
+  if (!sCourse) { showToast('اختر المادة أولاً', 'error'); return; }
+  const docs = doctorsOf(sCourse);
+  if (!docs.length) { showToast('أضف دكاترة لهذه المادة من زر "المواد"', 'info'); return; }
+  const v = await pickFrom('اختر الدكتور', docs.map(d => ({ value: d, label: dr(d) })), sDoctor);
+  if (v) { sDoctor = v; refreshSessionLabels(); }
+});
 $('session-date-btn').addEventListener('click', async () => { const v = await pickDate(sDate); if (v) { sDate = v; refreshSessionLabels(); } });
-$('session-time-btn').addEventListener('click', async () => { const v = await pickTime(sTime); if (v) { sTime = v; refreshSessionLabels(); } });
-$('session-close-btn').addEventListener('click', async () => { const v = await pickTime(sClose || sTime); if (v) { sClose = v; refreshSessionLabels(); } });
+$('session-close-btn').addEventListener('click', async () => { const v = await pickTime(sClose); if (v) { sClose = v; refreshSessionLabels(); } });
 document.querySelectorAll('[data-closemode]').forEach(b => b.addEventListener('click', () => setCloseMode(b.dataset.closemode)));
 $('open-create-session-btn').addEventListener('click', () => openSessionModal());
 $('close-session-modal').addEventListener('click', () => sessionModal.classList.add('hidden'));
@@ -589,28 +687,32 @@ $('cancel-session-btn').addEventListener('click', () => sessionModal.classList.a
 $('session-form').addEventListener('submit', async e => {
   e.preventDefault();
   const editId = $('session-edit-id').value;
-  const courseName = $('session-course-input').value.trim();
   const isOpen = $('session-open-input').checked;
-  if (!courseName) return;
+  if (!sCourse) { showToast('اختر المادة', 'error'); return; }
+  if (doctorsOf(sCourse).length && !sDoctor) { showToast('اختر الدكتور', 'error'); return; }
   if (!sDate) { showToast('اختار تاريخ المحاضرة', 'error'); return; }
-  const sessionDate = buildSessionDate(sDate, sTime);
-  let closeAfterMin = 0;
+  const sessionDate = buildSessionDate(sDate);
+  let closeAfterMin = 0, keepClose = false;
   if (isOpen && closeMode === 'time') {
     if (!sClose) { showToast('اختار وقت الإقفال', 'error'); return; }
-    const [y, mo, d] = sDate.split('-').map(Number), [h, mi] = sClose.split(':').map(Number);
-    const diff = new Date(y, mo - 1, d, h, mi).getTime() - Date.now();
-    if (diff <= 0) { showToast('وقت الإقفال فات بالفعل، اختار وقت قادم', 'error'); return; }
-    closeAfterMin = Math.ceil(diff / 60000);
+    const orig = editId ? findSession(editId) : null;
+    if (orig && orig.closeAtMs && sClose === hmOf(orig.closeAtMs) && sDate === parseSessionDate(orig.sessionDate)) keepClose = true;
+    else {
+      const [y, mo, d] = sDate.split('-').map(Number), [h, mi] = sClose.split(':').map(Number);
+      const diff = new Date(y, mo - 1, d, h, mi).getTime() - Date.now();
+      if (diff <= 0) { showToast('وقت الإقفال فات بالفعل، اختار وقت قادم', 'error'); return; }
+      closeAfterMin = Math.ceil(diff / 60000);
+    }
   }
   const id = editId || ('lec_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
   const createdAtMs = editId ? (findSession(editId)?.createdAtMs || Date.now()) : Date.now();
   await busy($('session-save-btn'), 'جاري الحفظ...', async () => {
-    try { await api({ action: 'saveSession', id, courseName, sessionDate, isOpen, createdAtMs, closeAfterMin }); }
+    try { await api({ action: 'saveSession', id, courseName: sCourse, doctor: sDoctor, sessionDate, isOpen, createdAtMs, closeAfterMin, keepClose }); }
     catch (err) { showToast(err.message === 'timeout' ? 'السيرفر اتأخر، جرب تاني' : 'حدث خطأ أثناء حفظ المحاضرة', 'error'); return; }
     sessionModal.classList.add('hidden');
     selectedAdminSessionId = id;
     loadAdminData().catch(() => {});
-    if (!editId) copyText(studentUrl(id), `تم إنشاء ونسخ رابط "${courseName}"!`);
+    if (!editId) copyText(studentUrl(id), `تم إنشاء ونسخ رابط "${sCourse}"`);
     else showToast('تم تحديث المحاضرة');
   });
 });
@@ -621,152 +723,116 @@ function openQr(id) {
   const s = findSession(id); if (!s) return;
   const url = studentUrl(id);
   $('qr-session-title').textContent = s.courseName;
+  $('qr-session-doctor').textContent = dr(s.doctor);
   $('qr-session-date').textContent = s.sessionDate;
   $('qr-link-input').value = url;
   const c = $('qr-code-container'); c.innerHTML = '';
-  if (window.QRCode) new QRCode(c, { text: url, width: 180, height: 180, colorDark: '#0f2942', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+  if (window.QRCode) new QRCode(c, { text: url, width: 190, height: 190, colorDark: '#0b1b2e', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
   qrModal.classList.remove('hidden');
 }
 $('close-qr-modal').addEventListener('click', () => qrModal.classList.add('hidden'));
-$('qr-copy-btn').addEventListener('click', () => copyText($('qr-link-input').value, 'تم نسخ الرابط!'));
+$('qr-copy-btn').addEventListener('click', () => copyText($('qr-link-input').value, 'تم نسخ الرابط'));
 
-// ===== كشف الأسماء: كله قابل للتعديل مباشرة =====
-const rosterModal = $('roster-modal');
-let rList = [], rOrig = '';
-
-const snapshot = () => JSON.stringify(rList.map(r => r.name));
-function markDirty() {
-  const dirty = snapshot() !== rOrig;
-  $('roster-save').disabled = !dirty;
-  $('roster-dirty').classList.toggle('hidden', !dirty);
-  return dirty;
+// ===== المواد والدكاترة (قابلة للتعديل) =====
+const coursesModal = $('courses-modal');
+let cList = [], cOrig = '';
+const cSnap = () => JSON.stringify(cList);
+function markCDirty() {
+  const d = cSnap() !== cOrig;
+  $('courses-save').disabled = !d;
+  $('courses-dirty').classList.toggle('hidden', !d);
+  return d;
 }
-
-async function openRoster() {
-  rosterModal.classList.remove('hidden');
-  $('roster-search').value = '';
-  $('roster-paste').classList.add('hidden');
-  $('roster-body').innerHTML = '<div class="p-6 text-center text-sm text-slate-400">جاري التحميل...</div>';
-  try { rosterList = (await api({ action: 'roster', sid: selectedAdminSessionId || '' })).names || []; }
-  catch { showToast('تعذر تحميل الكشف', 'error'); }
-  rList = rosterList.map(n => ({ name: n, orig: n }));
-  rOrig = snapshot();
-  renderRosterModal();
+function openCourses() {
+  cList = cloneCourses(coursesList); cOrig = cSnap();
+  renderCourses();
+  coursesModal.classList.remove('hidden');
 }
-
-function renderRosterModal(focusIdx = null) {
-  $('roster-count').textContent = `${rList.length} اسم`;
-  const q = $('roster-search').value, body = $('roster-body');
-  const items = rList.map((r, i) => ({ r, i })).filter(x => !q || !x.r.name || matchName(x.r.name, q));
-  if (!items.length) { body.innerHTML = '<div class="p-8 text-center text-sm text-slate-400">الكشف فاضي أو مفيش نتائج. اضغط "+ اسم جديد".</div>'; markDirty(); return; }
-  body.innerHTML = items.map(({ r, i }) => `<div class="flex items-center gap-2 px-2 py-2">
-      <span class="num">${i + 1}</span>
-      <input data-ri="${i}" value="${esc(r.name)}" maxlength="60" placeholder="اكتب الاسم" class="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold focus:bg-white focus:border-teal-500 focus:ring-4 focus:ring-teal-100 outline-none">
-      <button data-rdel="${i}" class="shrink-0 text-rose-500 text-xs font-bold px-3 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100">حذف</button></div>`).join('');
-  markDirty();
-  if (focusIdx !== null) {
-    const el = body.querySelector(`[data-ri="${focusIdx}"]`);
+function renderCourses(focus = null) {
+  $('courses-count').textContent = `${cList.length} مادة`;
+  const body = $('courses-body');
+  if (!cList.length) { body.innerHTML = '<div class="p-8 text-center text-sm text-slate-400">لا توجد مواد. اضغط "مادة جديدة".</div>'; markCDirty(); return; }
+  const inpCls = 'flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold focus:bg-white focus:border-gold-500 focus:ring-4 focus:ring-gold-500/20 outline-none';
+  body.innerHTML = cList.map((c, ci) => `
+    <div class="rounded-2xl border border-slate-200 bg-white p-3 space-y-2.5 shadow-sm">
+      <div class="flex items-center gap-2">
+        <span class="w-9 h-9 shrink-0 rounded-xl bg-ink-900 text-gold-300 flex items-center justify-center">${icon('book')}</span>
+        <input data-cn="${ci}" value="${esc(c.name)}" maxlength="80" placeholder="اسم المادة" class="${inpCls} font-display !text-lg">
+        <button data-cdel="${ci}" title="حذف المادة" class="shrink-0 text-rose-500 px-3 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100">${icon('trash')}</button>
+      </div>
+      <div class="space-y-1.5 pr-2 border-r-2 border-gold-300">
+        ${c.doctors.map((d, di) => `<div class="flex items-center gap-2">
+          <span class="w-8 text-gold-600 font-extrabold text-sm text-center shrink-0">د/</span>
+          <input data-cd="${ci}.${di}" value="${esc(d)}" maxlength="60" placeholder="اسم الدكتور" class="${inpCls}">
+          <button data-ddel="${ci}.${di}" title="حذف" class="shrink-0 text-slate-400 hover:text-rose-500 w-9 h-9 rounded-xl hover:bg-rose-50 flex items-center justify-center">${icon('x')}</button></div>`).join('')}
+        <button data-dadd="${ci}" class="btn-out !py-2 text-xs">${icon('plus', 'w-3.5 h-3.5')}دكتور</button>
+      </div>
+    </div>`).join('');
+  markCDirty();
+  if (focus) {
+    const el = body.querySelector(focus);
     if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); }
   }
 }
-
-async function saveRoster() {
-  const clean = rList.map(r => ({ name: r.name.trim().replace(/\s+/g, ' '), orig: r.orig })).filter(r => r.name);
-  if (!clean.length) { showToast('الكشف فاضي', 'error'); return false; }
-  const seen = new Set();
-  for (const r of clean) {
-    const k = normName(r.name);
-    if (seen.has(k)) { showToast(`الاسم مكرر: ${r.name}`, 'error'); return false; }
-    seen.add(k);
+$('courses-btn').addEventListener('click', openCourses);
+$('course-add-btn').addEventListener('click', () => {
+  cList.unshift({ name: '', doctors: [''] });
+  renderCourses('[data-cn="0"]');
+  $('courses-body').scrollTop = 0;
+});
+$('courses-body').addEventListener('input', e => {
+  const t = e.target;
+  if (t.dataset.cn !== undefined) cList[Number(t.dataset.cn)].name = t.value;
+  else if (t.dataset.cd !== undefined) { const [ci, di] = t.dataset.cd.split('.').map(Number); cList[ci].doctors[di] = t.value; }
+  else return;
+  markCDirty();
+});
+$('courses-body').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.cdel !== undefined) {
+    const ci = Number(b.dataset.cdel), nm = cList[ci].name || 'هذه المادة';
+    if (!await confirmDialog('حذف مادة', `حذف "${nm}" من القائمة؟ المحاضرات القديمة مش هتتأثر.`)) return;
+    cList.splice(ci, 1); renderCourses();
+  } else if (b.dataset.ddel !== undefined) {
+    const [ci, di] = b.dataset.ddel.split('.').map(Number);
+    cList[ci].doctors.splice(di, 1); renderCourses();
+  } else if (b.dataset.dadd !== undefined) {
+    const ci = Number(b.dataset.dadd);
+    cList[ci].doctors.push('');
+    renderCourses(`[data-cd="${ci}.${cList[ci].doctors.length - 1}"]`);
   }
-  const names = clean.map(r => r.name);
-  const renames = clean.filter(r => r.orig && r.orig !== r.name).map(r => [r.orig, r.name]);
-  if (!await confirmDialog('حفظ الكشف', `الكشف هيبقى ${names.length} اسم${renames.length ? `، منهم ${renames.length} اسم متعدّل` : ''}. متأكد؟`)) return false;
-  let ok = false;
-  await busy($('roster-save'), 'جاري الحفظ...', async () => {
+});
+async function saveCourses() {
+  const out = [], seen = new Set();
+  for (const c of cList) {
+    const name = c.name.trim().replace(/\s+/g, ' ');
+    if (!name) continue;
+    const k = normName(name);
+    if (seen.has(k)) { showToast(`المادة مكررة: ${name}`, 'error'); return; }
+    seen.add(k);
+    const ds = [];
+    c.doctors.forEach(d => { const x = stripDr(d); if (x && !ds.some(y => normName(y) === normName(x))) ds.push(x); });
+    out.push({ name, doctors: ds });
+  }
+  if (!out.length) { showToast('لازم تفضل مادة واحدة على الأقل', 'error'); return; }
+  await busy($('courses-save'), 'جاري الحفظ...', async () => {
     try {
-      await api({ action: 'setRoster', names, renames });
-      rosterList = names;
-      rList = names.map(n => ({ name: n, orig: n }));
-      rOrig = snapshot();
-      $('roster-paste').classList.add('hidden');
-      renderRosterModal();
-      showToast('تم حفظ الكشف');
-      loadAdminData().catch(() => {});
-      ok = true;
+      await api({ action: 'setCourses', courses: out });
+      coursesList = out;
+      cList = cloneCourses(out); cOrig = cSnap();
+      renderCourses();
+      showToast('تم حفظ المواد والدكاترة');
     } catch (err) {
-      showToast(err.message === 'busy' ? 'السيرفر مشغول، جرب كمان شوية' : err.message === 'timeout' ? 'السيرفر اتأخر، جرب تاني' : 'تعذر حفظ الكشف', 'error');
+      showToast(err.message === 'unknown_action' ? 'حدّث Code.gs وانشر نسخة جديدة (New version)' : err.message === 'busy' ? 'السيرفر مشغول، جرب كمان شوية' : 'تعذر حفظ المواد', 'error');
     }
   });
-  return ok;
 }
-
-async function closeRoster() {
-  if (markDirty() && !await confirmDialog('تعديلات غير محفوظة', 'في تعديلات ماتحفظتش. تقفل وتتجاهلها؟')) return;
-  rosterModal.classList.add('hidden');
+async function closeCourses() {
+  if (markCDirty() && !await confirmDialog('تعديلات غير محفوظة', 'في تعديلات ماتحفظتش. تقفل وتتجاهلها؟')) return;
+  coursesModal.classList.add('hidden');
 }
+$('courses-save').addEventListener('click', saveCourses);
+$('courses-close').addEventListener('click', closeCourses);
+$('courses-cancel').addEventListener('click', closeCourses);
 
-$('roster-upload-btn').addEventListener('click', openRoster);
-$('roster-close').addEventListener('click', closeRoster);
-$('roster-cancel').addEventListener('click', closeRoster);
-$('roster-search').addEventListener('input', () => renderRosterModal());
-$('roster-save').addEventListener('click', saveRoster);
-
-$('roster-add-btn').addEventListener('click', () => {
-  $('roster-search').value = '';
-  rList.push({ name: '', orig: null });
-  renderRosterModal(rList.length - 1);
-});
-$('roster-paste-btn').addEventListener('click', () => $('roster-paste').classList.toggle('hidden'));
-
-$('roster-body').addEventListener('input', e => {
-  const i = e.target.dataset.ri;
-  if (i === undefined) return;
-  rList[Number(i)].name = e.target.value;
-  markDirty();
-});
-$('roster-body').addEventListener('keydown', e => {
-  const i = e.target.dataset?.ri;
-  if (e.key !== 'Enter' || i === undefined) return;
-  e.preventDefault();
-  $('roster-search').value = '';
-  rList.splice(Number(i) + 1, 0, { name: '', orig: null });
-  renderRosterModal(Number(i) + 1);
-});
-$('roster-body').addEventListener('click', e => {
-  const b = e.target.closest('[data-rdel]'); if (!b) return;
-  rList.splice(Number(b.dataset.rdel), 1);
-  renderRosterModal();
-});
-
-$('roster-paste-ok').addEventListener('click', () => {
-  const names = $('roster-text').value.split('\n')
-    .map(s => s.replace(/^\s*\d+[\s.\-)]*/, '').trim().replace(/\s+/g, ' ')).filter(Boolean);
-  if (!names.length) return;
-  names.forEach(n => rList.push({ name: n, orig: null }));
-  $('roster-text').value = ''; $('roster-paste').classList.add('hidden');
-  $('roster-search').value = '';
-  renderRosterModal();
-  const bd = $('roster-body'); bd.scrollTop = bd.scrollHeight;
-  showToast(`اتضاف ${names.length} اسم، اضغط "حفظ التعديلات"`, 'info');
-});
-
-// ===== Boot =====
-async function bootstrapApp() {
-  if (!isAdminMode && !isStudentLink) { activeStudentSession = null; renderStudentView(); return; }
-  try {
-    if (isAdminMode) {
-      await loadAdminData();
-      setInterval(() => { if (document.visibilityState === 'visible' && $('roster-modal').classList.contains('hidden') && $('session-modal').classList.contains('hidden')) loadAdminData().catch(() => {}); }, 30000);
-    } else {
-      try { activeStudentSession = (await apiRetry({ action: 'session', sid: requestedSessionId })).session; }
-      catch (err) { if (err.message === 'not_found') activeStudentSession = null; else throw err; }
-      renderStudentView();
-      if (activeStudentSession) {
-        if (getSaved(activeStudentSession.id)) verifyRegistration();
-        else if (activeStudentSession.isOpen !== false) loadRoster().catch(() => {});
-      }
-    }
-  } catch (err) { console.error(err); fatal(err.message); }
-}
-bootstrapApp();
+// ===== كشف الأسماء: كله قابل للتعديل مباشرة =
