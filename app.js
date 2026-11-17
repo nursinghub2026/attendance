@@ -203,7 +203,6 @@ const matchName = (name, q) => {
   const key = fold(name).replace(/ /g, '');
   return words.every(w => key.includes(w));
 };
-
 // ===== التاريخ =====
 const DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const DOW_SHORT = ['أحد', 'اثنين', 'ثلاث', 'أربع', 'خميس', 'جمعة', 'سبت'];
@@ -441,8 +440,7 @@ function verifyRegistration(j) {
     if (s.isOpen !== false) renderNameList();
     showToast('تم إلغاء تسجيلك، تقدر تسجل من جديد', 'info');
   }
-}
-
+        }
 // ===== Admin view =====
 function renderAdminView() {
   hideLoader();
@@ -601,7 +599,6 @@ $('copy-whatsapp-btn').addEventListener('click', () => {
   if (!pr.length) { showToast('مفيش حاضرين لسه', 'error'); return; }
   copyText(`كشف حضور: ${cur.courseName}\n${cur.doctor ? dr(cur.doctor) + '\n' : ''}التاريخ: ${cur.sessionDate}\nالحاضرين: ${pr.length}\n------------------------\n` + pr.map(x => `${x.no}. ${x.name}`).join('\n'), 'تم نسخ الحاضرين');
 });
-
 // ===== Add student (admin) =====
 const addModal = $('add-modal');
 $('add-student-btn').addEventListener('click', () => {
@@ -834,5 +831,156 @@ async function closeCourses() {
 $('courses-save').addEventListener('click', saveCourses);
 $('courses-close').addEventListener('click', closeCourses);
 $('courses-cancel').addEventListener('click', closeCourses);
+// ===== كشف الأسماء: كله قابل للتعديل مباشرة =====
+const rosterModal = $('roster-modal');
+let rList = [], rOrig = '';
+const rSnap = () => JSON.stringify(rList.map(r => r.name));
+function markRDirty() {
+  const d = rSnap() !== rOrig;
+  $('roster-save').disabled = !d;
+  $('roster-dirty').classList.toggle('hidden', !d);
+  return d;
+}
 
-// ===== كشف الأسماء: كله قابل للتعديل مباشرة =
+function renderRosterModal(focusIdx = null) {
+  $('roster-count').textContent = `${rList.length} اسم`;
+  const body = $('roster-body'), keep = body.scrollTop, q = $('roster-search').value;
+  const items = rList.map((r, i) => ({ r, i })).filter(x => !q || !x.r.name || matchName(x.r.name, q));
+  if (!items.length) {
+    body.innerHTML = '<div class="p-8 text-center text-sm text-slate-400">الكشف فاضي أو مفيش نتائج</div>';
+    markRDirty(); return;
+  }
+  body.innerHTML = items.map(({ r, i }) => `<div class="flex items-center gap-2 px-2 py-2">
+    <span class="num">${i + 1}</span>
+    <input data-ri="${i}" value="${esc(r.name)}" maxlength="60" placeholder="اسم الطالب" class="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-base font-bold focus:bg-white focus:border-gold-500 focus:ring-4 focus:ring-gold-500/20 outline-none">
+    <button data-rdel="${i}" title="حذف" class="shrink-0 text-rose-500 w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 flex items-center justify-center">${icon('trash')}</button></div>`).join('');
+  body.scrollTop = keep;
+  markRDirty();
+  if (focusIdx !== null) {
+    const el = body.querySelector(`[data-ri="${focusIdx}"]`);
+    if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); }
+  }
+}
+
+async function openRoster() {
+  rosterModal.classList.remove('hidden');
+  $('roster-search').value = '';
+  $('roster-paste').classList.add('hidden');
+  $('roster-body').innerHTML = '<div class="p-8 text-center text-sm text-slate-400">جاري التحميل...</div>';
+  try { rosterList = (await api({ action: 'roster', sid: '' })).names || []; }
+  catch { rosterModal.classList.add('hidden'); showToast('تعذر تحميل الكشف', 'error'); return; }
+  rList = rosterList.map(n => ({ name: n, orig: n }));
+  rOrig = rSnap();
+  renderRosterModal();
+}
+
+async function saveRoster() {
+  const cl = rList.map(r => ({ name: r.name.trim().replace(/\s+/g, ' '), orig: r.orig })).filter(r => r.name);
+  if (!cl.length) { showToast('الكشف فاضي', 'error'); return; }
+  const seen = new Set();
+  for (const r of cl) {
+    const k = normName(r.name);
+    if (seen.has(k)) { showToast(`الاسم مكرر: ${r.name}`, 'error'); return; }
+    seen.add(k);
+  }
+  const names = cl.map(r => r.name);
+  const renames = cl.filter(r => r.orig && r.orig !== r.name).map(r => [r.orig, r.name]);
+  if (!await confirmDialog('حفظ الكشف', `الكشف هيبقى ${names.length} اسم${renames.length ? `، منهم ${renames.length} اسم متعدّل` : ''}. متأكد؟`)) return;
+  await busy($('roster-save'), 'جاري الحفظ...', async () => {
+    try {
+      await api({ action: 'setRoster', names, renames });
+      rosterList = names;
+      rList = names.map(n => ({ name: n, orig: n }));
+      rOrig = rSnap();
+      renderRosterModal();
+      showToast('تم حفظ الكشف');
+      loadAdminData().catch(() => {});
+    } catch (err) {
+      showToast(err.message === 'busy' ? 'السيرفر مشغول، جرب كمان شوية' : err.message === 'timeout' ? 'السيرفر اتأخر، جرب تاني' : err.message === 'unknown_action' ? 'حدّث Code.gs وانشر نسخة جديدة (New version)' : 'تعذر حفظ الكشف', 'error');
+    }
+  });
+  markRDirty();
+}
+
+async function closeRoster() {
+  if (markRDirty() && !await confirmDialog('تعديلات غير محفوظة', 'في تعديلات ماتحفظتش. تقفل وتتجاهلها؟')) return;
+  rosterModal.classList.add('hidden');
+}
+
+$('roster-upload-btn').addEventListener('click', openRoster);
+$('roster-save').addEventListener('click', saveRoster);
+$('roster-close').addEventListener('click', closeRoster);
+$('roster-cancel').addEventListener('click', closeRoster);
+$('roster-search').addEventListener('input', () => renderRosterModal());
+
+$('roster-add-btn').addEventListener('click', () => {
+  $('roster-search').value = '';
+  rList.push({ name: '', orig: null });
+  renderRosterModal(rList.length - 1);
+});
+$('roster-paste-btn').addEventListener('click', () => $('roster-paste').classList.toggle('hidden'));
+$('roster-paste-ok').addEventListener('click', () => {
+  const have = new Set(rList.map(r => normName(r.name)));
+  let add = 0, dup = 0;
+  $('roster-text').value.split('\n')
+    .map(s => s.replace(/^\s*[\d٠-٩]+\s*[.\-)،:–]*\s*/, '').trim().replace(/\s+/g, ' '))
+    .filter(Boolean)
+    .forEach(n => {
+      const k = normName(n);
+      if (have.has(k)) { dup++; return; }
+      have.add(k); rList.push({ name: n, orig: null }); add++;
+    });
+  if (!add) { showToast(dup ? 'كل الأسماء موجودة بالفعل' : 'مفيش أسماء للإضافة', 'error'); return; }
+  $('roster-text').value = '';
+  $('roster-paste').classList.add('hidden');
+  $('roster-search').value = '';
+  renderRosterModal();
+  const bd = $('roster-body'); bd.scrollTop = bd.scrollHeight;
+  showToast(`اتضاف ${add} اسم${dup ? ` (${dup} مكرر اتجاهل)` : ''}، اضغط "حفظ التعديلات"`, 'info');
+});
+
+$('roster-body').addEventListener('input', e => {
+  const i = e.target.dataset.ri;
+  if (i === undefined) return;
+  rList[Number(i)].name = e.target.value;
+  markRDirty();
+});
+$('roster-body').addEventListener('click', e => {
+  const b = e.target.closest('[data-rdel]'); if (!b) return;
+  rList.splice(Number(b.dataset.rdel), 1);
+  renderRosterModal();
+});
+
+// ===== Boot =====
+async function bootstrapApp() {
+  if (!isAdminMode && !isStudentLink) { activeStudentSession = null; renderStudentView(); return; }
+  try {
+    if (isAdminMode) {
+      loadCourses();
+      await loadAdminData();
+      setInterval(() => { if (document.visibilityState === 'visible') loadAdminData().catch(() => {}); }, 30000);
+      return;
+    }
+    let j = null;
+    try {
+      try { j = await apiRetry({ action: 'init', sid: requestedSessionId }); }
+      catch (err) {
+        if (err.message !== 'unknown_action') throw err;
+        // Code.gs القديم: نستخدم الطلبات المنفصلة
+        const s = await apiRetry({ action: 'session', sid: requestedSessionId });
+        const r = await apiRetry({ action: 'roster', sid: requestedSessionId });
+        j = { session: s.session, names: r.names, taken: r.taken };
+      }
+      activeStudentSession = cleanSession(j.session);
+    } catch (err) {
+      if (err.message === 'not_found') activeStudentSession = null; else throw err;
+    }
+    if (activeStudentSession) { rosterNames = j.names || []; takenSet = new Set(j.taken || []); pickedIdx = null; }
+    renderStudentView();
+    if (activeStudentSession) {
+      if (getSaved(activeStudentSession.id)) verifyRegistration(j);
+      else if (activeStudentSession.isOpen !== false) renderNameList();
+    }
+  } catch (err) { console.error(err); fatal(err.message); }
+}
+bootstrapApp();
