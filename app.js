@@ -53,6 +53,8 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbx1otQoRprzJfcsQwu50E82
 const urlParams = new URLSearchParams(location.search);
 const requestedSessionId = urlParams.get('sid');
 const isStudentLink = Boolean(requestedSessionId);
+const tokenParam = urlParams.get('t') || '';
+let tokenName = '', requireToken = false, tokenUsed = false;
 const isAdminMode = urlParams.get('admin') === '1';
 const appId = 'attendance-system-v3';
 
@@ -89,12 +91,20 @@ async function loadCourses() {
 const dOnly = s => String(s || '').split(' - ')[0];
 const cleanSession = s => s ? { ...s, sessionDate: dOnly(s.sessionDate) } : s;
 
-async function api(body, ms = 40000) {
+const getAdminKey = () => { try { return localStorage.getItem('att_admin_key') || ''; } catch { return ''; } };
+async function api(body, ms = 40000, retried = false) {
+  if (isAdminMode) { const k = getAdminKey(); if (k) body = { ...body, adminKey: k }; }
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
   try {
     const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body), signal: ctl.signal });
     const j = await r.json();
-    if (!j.ok) throw new Error(j.error || 'api_error');
+    if (!j.ok) {
+      if (j.error === 'unauthorized' && isAdminMode && !retried) {
+        const k = prompt('أدخل كلمة سر لوحة التحكم');
+        if (k) { try { localStorage.setItem('att_admin_key', k.trim()); } catch {} clearTimeout(t); return api(body, ms, true); }
+      }
+      throw new Error(j.error || 'api_error');
+    }
     return j;
   } catch (e) { if (e.name === 'AbortError') throw new Error('timeout'); throw e; }
   finally { clearTimeout(t); }
@@ -357,7 +367,26 @@ function renderStudentView() {
     const left = s.closeAtMs - Date.now();
     if (left > 0 && left < 2147483000) closeTimer = setTimeout(() => { activeStudentSession = { ...s, isOpen: false }; renderStudentView(); }, left + 500);
   }
+  if (tokenUsed) {
+    $('closed-title').textContent = 'الرابط ده اتستخدم قبل كده';
+    $('closed-message').textContent = 'كل رابط شخصي بيشتغل مرة واحدة. لو ماسجلتش حضورك، اطلب رابط جديد من البوت أو كلم المحاضر.';
+    closed.classList.remove('hidden'); return;
+  }
+  if (requireToken && !tokenName) {
+    $('closed-title').textContent = 'التسجيل من بوت التليجرام فقط';
+    $('closed-message').textContent = 'افتح بوت الحضور على تليجرام واكتب /attend عشان توصلك رابطك الشخصي.';
+    closed.classList.remove('hidden'); return;
+  }
+  if (tokenName) applyTokenMode();
   formCard.classList.remove('hidden');
+}
+function applyTokenMode() {
+  const i = rosterNames.findIndex(n => normName(n) === normName(tokenName));
+  pickedIdx = i >= 0 ? i : null;
+  $('student-search').parentElement.classList.add('hidden');
+  $('name-list').parentElement.classList.add('hidden');
+  const h = $('student-form-card').querySelector('h2'); if (h) h.textContent = 'تأكيد تسجيل الحضور';
+  const pl = $('picked-label'); pl.textContent = `الاسم: ${tokenName}`; pl.classList.remove('hidden');
 }
 
 // ===== اختيار الاسم من الكشف =====
@@ -410,13 +439,14 @@ $('attendance-form').addEventListener('submit', async e => {
   if (!await confirmDialog('تأكيد الاسم', `هل أنت متأكد أن "${name}" هو اسمك؟ لن تستطيع تسجيل اسم آخر بعد التأكيد.`)) return;
   submitBtn.disabled = true; submitText.textContent = 'جاري حفظ الحضور...';
   try {
-    await submitWithRetry({ action: 'addRecord', sessionId: s.id, rosterIdx: pickedIdx, studentName: name, deviceId: getDeviceId() });
+    await submitWithRetry({ action: 'addRecord', sessionId: s.id, rosterIdx: pickedIdx, studentName: name, deviceId: getDeviceId(), ...(tokenParam ? { token: tokenParam } : {}) });
     saveReg(s.id, { studentName: name, rosterIdx: pickedIdx, timestamp: new Date().toISOString() });
     showToast('تم تسجيل حضورك بنجاح');
     renderStudentView();
   } catch (err) {
     const m = { duplicate: 'الاسم ده اتسجل قبل كدا!', closed: 'التسجيل مغلق لهذه المحاضرة.', invalid_name: 'الكشف اتحدّث، اختار اسمك تاني.',
-      device_used: 'تم التسجيل من هذا الجهاز مسبقاً لهذه المحاضرة.' };
+      device_used: 'تم التسجيل من هذا الجهاز مسبقاً لهذه المحاضرة.',
+      token_used: 'الرابط ده اتستخدم قبل كده.', invalid_token: 'الرابط غير صحيح، اطلب رابط جديد من البوت.', token_required: 'التسجيل من بوت التليجرام فقط.' };
     if (err.message === 'closed') { activeStudentSession = { ...s, isOpen: false }; renderStudentView(); }
     if (err.message === 'duplicate' || err.message === 'invalid_name') loadRoster().catch(() => {});
     showToast(m[err.message] || 'حدث خطأ أثناء التسجيل، حاول مرة أخرى.', 'error');
@@ -963,7 +993,7 @@ async function bootstrapApp() {
     }
     let j = null;
     try {
-      try { j = await apiRetry({ action: 'init', sid: requestedSessionId }); }
+      try { j = await apiRetry({ action: 'init', sid: requestedSessionId, t: tokenParam }); }
       catch (err) {
         if (err.message !== 'unknown_action') throw err;
         // Code.gs القديم: نستخدم الطلبات المنفصلة
@@ -972,6 +1002,7 @@ async function bootstrapApp() {
         j = { session: s.session, names: r.names, taken: r.taken };
       }
       activeStudentSession = cleanSession(j.session);
+      tokenName = j.tokenName || ''; requireToken = !!j.requireToken; tokenUsed = !!j.tokenUsed;
     } catch (err) {
       if (err.message === 'not_found') activeStudentSession = null; else throw err;
     }
@@ -984,3 +1015,4 @@ async function bootstrapApp() {
   } catch (err) { console.error(err); fatal(err.message); }
 }
 bootstrapApp();
+
