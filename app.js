@@ -1225,6 +1225,31 @@ async function bootstrapApp() {
     }
   } catch (err) { console.error(err); fatal(err.message); }
 }
+/* mode-chooser: بعد كلمة السر، اختيار أونلاين أو أوفلاين (UI فقط، مفيش تغيير في الباك اند أو الداتا) */
+const OFFLINE_ADMIN_URL = 'https://nursinghub2026.github.io/attendance-offline/?admin=1';
+let _modeShown = false;
+function showModeChooser() {
+  if (_modeShown || !isAdminMode) return; _modeShown = true;
+  const o = document.createElement('div');
+  o.id = 'mode-gate';
+  o.style.cssText = 'position:fixed;inset:0;z-index:110;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at 15% 0%,rgba(201,164,92,.28),transparent 45%),radial-gradient(circle at 95% 100%,rgba(90,150,210,.22),transparent 50%),linear-gradient(160deg,#10263f,#07121f)';
+  o.innerHTML = '<div style="width:100%;max-width:380px;text-align:center;font-family:Cairo,sans-serif">'
+    + '<p style="font-size:11px;font-weight:700;color:#e3c987;letter-spacing:.25em;margin:0 0 8px">لوحة التحكم · فرقة 1</p>'
+    + '<h2 style="font-family:Amiri,serif;font-size:32px;font-weight:700;color:#fff;margin:0 0 8px">اختار نوع الحضور</h2>'
+    + '<p style="font-size:14px;color:#cbd5e1;margin:0 0 24px">أونلاين: الموقع زي ما هو. أوفلاين: حضور داخل الكلية بالموقع.</p>'
+    + '<button id="mg-on" type="button" style="width:100%;padding:16px;border-radius:16px;border:0;font:700 18px Cairo,sans-serif;color:#0b1b2e;background:linear-gradient(to left,#d4af64,#e8d08f);box-shadow:0 6px 18px rgba(0,0,0,.35);margin-bottom:12px;cursor:pointer">أونلاين</button>'
+    + '<button id="mg-off" type="button" style="width:100%;padding:16px;border-radius:16px;border:1.5px solid #d4af64;font:700 18px Cairo,sans-serif;color:#e8d08f;background:rgba(255,255,255,.06);cursor:pointer">أوفلاين</button>'
+    + '</div>';
+  document.body.appendChild(o);
+  document.getElementById('mg-on').onclick = () => o.remove();
+  document.getElementById('mg-off').onclick = () => { location.href = OFFLINE_ADMIN_URL; };
+}
+(function () {
+  if (typeof loadAdminData !== 'function') return;
+  const _lad = loadAdminData;
+  loadAdminData = async function () { const r = await _lad.apply(this, arguments); showModeChooser(); return r; };
+})();
+
 bootstrapApp();
 
 /* hdr-collapse: slim sticky header on scroll (phone only, UI only) */
