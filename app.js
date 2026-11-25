@@ -488,7 +488,7 @@ function verifyRegistration(j) {
 function renderAdminView() {
   hideLoader();
   $('admin-mode-wrapper').classList.remove('hidden');
-  document.title = 'لوحة تحكم الحضور';
+  document.title = 'لوحة تحكم الحضور - فرقة 1';
   const sorted = [...sessionsList].sort((a, b) => (b.createdAtMs || 0) - (a.createdAtMs || 0));
   if (!selectedAdminSessionId || !sorted.some(s => s.id === selectedAdminSessionId)) selectedAdminSessionId = sorted[0]?.id || null;
   renderSessionsGrid(sorted);
